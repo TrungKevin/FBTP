@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <application
+        android:name=".MyApplication"
+        android:allowBackup="true"
+        android:enableOnBackInvokedCallback="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.FBTP"
+        android:usesCleartextTraffic="true"
+        tools:ignore="GoogleAppIndexingWarning">
+        <activity
+            android:name=".renter.activity.DatLichActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MaterialComponents.NoActionBar" /> <!-- Added theme to fix crash -->
+        <!-- Main Entry Point -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+
+        </activity> <!-- Authentication Activities -->
+        <activity
+            android:name=".AccountActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".RegisterActivity"
+            android:exported="false" /> <!-- Owner Activities -->
+        <activity
+            android:name=".owner.activity.UploadInfoActivity"
+            android:exported="false" />
+        <activity
+            android:name=".owner.activity.ThietLapNgayGio"
+            android:exported="false" />
+        <activity
+            android:name=".owner.activity.ItemDetailOwnerActivity"
+            android:exported="false"
+            android:launchMode="singleTop" /> <!-- Renter Activities -->
+        <activity
+            android:name=".renter.activity.FindFootballActivity"
+            android:exported="false" />
+        <activity
+            android:name=".renter.activity.FindBadmintonActivity"
+            android:exported="false" />
+        <activity
+            android:name=".renter.activity.FindPickleballActivity"
+            android:exported="false" />
+        <activity
+            android:name=".renter.activity.FindTennisActivity"
+            android:exported="false" />
+        <activity
+            android:name=".renter.activity.ItemDetailUserActivity"
+            android:exported="false" />
+    </application>
+
+</manifest>

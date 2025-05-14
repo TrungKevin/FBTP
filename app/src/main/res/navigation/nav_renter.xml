@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_renter"
+    app:startDestination="@id/first_fragment">
+
+    <!-- Renter - First Fragment -->
+    <fragment
+        android:id="@+id/first_fragment"
+        android:name="com.trungkien.fbtp.renter.fragment.FirstFragment"
+        android:label="Nhập liệu"
+        tools:layout="@layout/fragment_first">
+        <action
+            android:id="@+id/action_firstFragment_to_secondFragment"
+            app:destination="@id/second_fragment"
+            app:popUpTo="@id/first_fragment"
+            app:popUpToInclusive="true" />
+    </fragment>
+
+    <!-- Renter - Second Fragment -->
+    <fragment
+        android:id="@+id/second_fragment"
+        android:name="com.trungkien.fbtp.renter.fragment.SecondFragment"
+        android:label="Thống kê"
+        tools:layout="@layout/fragment_second">
+        <action
+            android:id="@+id/action_secondFragment_to_firstFragment"
+            app:destination="@id/first_fragment"
+            app:popUpTo="@id/second_fragment"
+            app:popUpToInclusive="true" />
+        <argument
+            android:name="username"
+            app:argType="string"
+            android:defaultValue="Không có dữ liệu" />
+    </fragment>
+</navigation>

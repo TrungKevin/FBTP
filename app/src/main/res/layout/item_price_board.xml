@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="12dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="2dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:orientation="vertical">
+
+        <TableLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:stretchColumns="0,1,2"
+            android:background="@drawable/price_item_background">
+
+            <!-- Header Row -->
+            <TableRow
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@color/colorPrimary">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:padding="8dp"
+                    android:gravity="center"
+                    android:text="Buổi"
+                    android:textColor="@android:color/white"
+                    android:textStyle="bold"/>
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:padding="8dp"
+                    android:gravity="center"
+                    android:text="Cỡ sân"
+                    android:textColor="@android:color/white"
+                    android:textStyle="bold"/>
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:padding="8dp"
+                    android:gravity="center"
+                    android:text="Cập nhật"
+                    android:textColor="@android:color/white"
+                    android:textStyle="bold"/>
+            </TableRow>
+
+            <!-- First Data Row -->
+            <TableRow
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@android:color/white">
+
+                <TextView
+                    android:id="@+id/txt_session"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:padding="8dp"
+                    android:gravity="center"
+                    android:text="Sáng"
+                    android:textSize="14sp"/>
+
+                <TextView
+                    android:id="@+id/txt_court_size"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:padding="8dp"
+                    android:gravity="center"
+                    android:text="5vs5"
+                    android:textSize="14sp"/>
+
+                <ImageView
+                    android:id="@+id/btn_upDate"
+                    android:layout_width="0dp"
+                    android:layout_height="30dp"
+                    android:layout_weight="1"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_write"
+                    android:contentDescription="Cập nhật khung giờ"/>
+            </TableRow>
+
+            <!-- Divider -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#E0E0E0"/>
+
+            <!-- Second Header Row -->
+            <TableRow
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@color/colorPrimary">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:padding="8dp"
+                    android:gravity="center"
+                    android:text="Thời gian"
+                    android:textColor="@android:color/white"
+                    android:textStyle="bold"/>
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:padding="8dp"
+                    android:gravity="center"
+                    android:text="Giá"
+                    android:textColor="@android:color/white"
+                    android:textStyle="bold"/>
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:padding="8dp"
+                    android:gravity="center"
+                    android:text="Xóa"
+                    android:textColor="@android:color/white"
+                    android:textStyle="bold"/>
+            </TableRow>
+
+            <!-- Second Data Row -->
+            <TableRow
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@android:color/white">
+
+                <TextView
+                    android:id="@+id/txt_period"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:padding="8dp"
+                    android:gravity="center"
+                    android:text="1 giờ"
+                    android:textSize="14sp"/>
+
+                <TextView
+                    android:id="@+id/txt_price"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:padding="8dp"
+                    android:gravity="center"
+                    android:text="100,000 VNĐ"
+                    android:textSize="14sp"/>
+
+                <ImageView
+                    android:id="@+id/btn_delete"
+                    android:layout_width="0dp"
+                    android:layout_height="24dp"
+                    android:layout_weight="1"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_delete"
+                    android:contentDescription="Xóa khung giờ"
+                    app:tint="@color/color_red"/>
+            </TableRow>
+        </TableLayout>
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

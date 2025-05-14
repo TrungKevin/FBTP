@@ -1,0 +1,37 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="40dp"
+    android:height="40dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Circular background -->
+    <path
+        android:fillColor="#1976D2"
+        android:pathData="M12,2A10,10 0 1,1 2,12A10,10 0 0,1 12,2Z"/>
+
+    <!-- Simplified pickleball paddle -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M10,6H14A2,2 0 0,1 16,8V12A2,2 0 0,1 14,14H10A2,2 0 0,1 8,12V8A2,2 0 0,1 10,6Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M11.5,14H12.5V18H11.5Z"/>
+    <path
+        android:fillColor="#FF9800"
+        android:pathData="M11.5,16H12.5V18H11.5Z"/>
+
+    <!-- Small pickleball -->
+    <path
+        android:fillColor="#FFEB3B"
+        android:pathData="M16,5A1.5,1.5 0 1,1 14.5,6.5A1.5,1.5 0 0,1 16,5Z"/>
+
+    <!-- Simplified "I" for "IX" -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M7,4H8V7H7Z"/>
+
+    <!-- Simplified "X" for "IX" -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M8,4L10,7M10,4L8,7"/>
+</vector>

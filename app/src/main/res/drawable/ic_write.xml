@@ -1,0 +1,48 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Book Shape -->
+    <!-- Book Cover (main body, slightly tilted for 3D effect) -->
+    <path
+        android:fillColor="#3F51B5"
+    android:pathData="M5,6 L18,4 L19,16 L6,18 Z" />
+
+    <!-- Book Spine (left side, darker for depth) -->
+    <path
+        android:fillColor="#303F9F"
+    android:pathData="M5,6 L6,18 L8,17 L7,5 Z" />
+
+    <!-- Pages (white, with lines to indicate page layers) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M7,5 L18,4 L17,14 L6,15 Z" />
+    <!-- Page lines for detail -->
+    <path
+        android:fillColor="#000000"
+        android:strokeWidth="0.5"
+        android:pathData="M7,6 L17,5 M7,7 L16,6 M7,8 L15,7" />
+
+    <!-- Pen (diagonal across the book) -->
+    <!-- Pen Body (long rectangle) -->
+    <path
+        android:fillColor="#0288D1"
+    android:pathData="M4,16 L16,4 L17.5,5.5 L5.5,17.5 Z" />
+
+    <!-- Pen Tip (triangle at the bottom-left) -->
+    <path
+        android:fillColor="#0288D1"
+        android:pathData="M4,16 L5.5,17.5 L3,18 Z" />
+
+    <!-- Pen Nib (small triangle inside the tip for detail) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M4.5,16.5 L5,17 L4,17 Z" />
+
+    <!-- Pen Cap Detail (small rectangle at the top-right) -->
+    <path
+        android:fillColor="#4FC3F7"
+    android:pathData="M16,4 L17.5,5.5 L16.5,6.5 L15,5 Z" />
+</vector>

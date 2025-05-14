@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#CADFCB"
+    android:padding="16dp"
+    >
+
+    <!-- Search Bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+
+        <LinearLayout
+            android:id="@+id/search_layout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="12dp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="horizontal"
+                android:background="@drawable/search_background"
+                android:gravity="center_vertical"
+                android:padding="8dp">
+
+                <ImageView
+                    android:id="@+id/img_timKiem"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:contentDescription="@string/search"
+                    app:srcCompat="@drawable/ic_search"
+                    app:tint="@null" />
+
+                <EditText
+                    android:id="@+id/edt_timKiem"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:background="@null"
+                    android:hint="@string/search_hint"
+                    android:imeOptions="actionSearch"
+                    android:maxLines="1"
+                    android:padding="4dp"
+                    android:textColor="@android:color/black"
+                    android:textColorHint="@android:color/darker_gray"
+                    tools:text="" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Button Group for Sports -->
+        <LinearLayout
+            android:id="@+id/sports_button_group"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:padding="8dp"
+            app:layout_constraintTop_toBottomOf="@id/search_layout"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <!-- Soccer Button -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="4dp"
+                app:rippleColor="@color/colorPrimary">
+
+                <ImageButton
+                    android:id="@+id/imgbtn_FB"
+                    android:layout_width="match_parent"
+                    android:layout_height="80dp"
+                    android:background="@android:color/transparent"
+                    android:contentDescription="@string/soccer_logo"
+                    android:scaleType="centerCrop"
+                    app:srcCompat="@drawable/logobong"
+                    app:tint="@null" />
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Badminton Button -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="4dp"
+                app:rippleColor="@color/colorPrimary">
+
+                <ImageButton
+                    android:id="@+id/img_btn_BMT"
+                    android:layout_width="match_parent"
+                    android:layout_height="80dp"
+                    android:background="@android:color/transparent"
+                    android:contentDescription="@string/badminton_logo"
+                    android:scaleType="centerCrop"
+                    app:srcCompat="@drawable/logobadmintonn"
+                    app:tint="@null" />
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Pickleball Button -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="4dp"
+                app:rippleColor="@color/colorPrimary">
+
+                <ImageButton
+                    android:id="@+id/img_btn_PKB"
+                    android:layout_width="match_parent"
+                    android:layout_height="80dp"
+                    android:background="@android:color/transparent"
+                    android:contentDescription="@string/pickleball_logo"
+                    android:scaleType="centerCrop"
+                    app:srcCompat="@drawable/logopickleball"
+                    app:tint="@null" />
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Tennis Button -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="4dp"
+                app:rippleColor="@color/colorPrimary">
+
+                <ImageButton
+                    android:id="@+id/img_btn_TN"
+                    android:layout_width="match_parent"
+                    android:layout_height="80dp"
+                    android:background="@android:color/transparent"
+                    android:contentDescription="@string/tennis_logo"
+                    android:scaleType="centerCrop"
+                    app:srcCompat="@drawable/logotennis"
+                    app:tint="@null" />
+            </com.google.android.material.card.MaterialCardView>
+
+
+        </LinearLayout>
+
+        <!-- RecyclerView for Summary -->
+        <TextView
+            android:id="@+id/textView6"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Danh sách sân : "
+            android:layout_marginTop="10dp"
+            android:textStyle="bold"
+            android:textSize="20dp"
+            android:textColor="#050505"
+            />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rcv_tongHop"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:clipToPadding="false"
+            android:paddingBottom="16dp"
+            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/sports_button_group"
+            />
+
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

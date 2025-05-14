@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <color name="colorPrimary">#4CD851</color>
+    <color name="colorPrimaryDark">#432fbf</color>
+    <color name="colorAccent">#D81B60</color>
+
+    <color name="colorTextPrimary">#ffffff</color>
+    <color name="colorTextSecondary">#A3FFFFFF</color>
+    <color name="colorBadge">#f4d415</color>
+    <color name="color_red">#FF0000</color>
+    <color name="color_green">#00FF00</color>
+    <color name="primary_color">#6200EE</color>
+
+    <color name="gray_light">#B3FFFFFF</color>
+    <color name="gray_dark">#403C3C</color>
+    <!-- New colors for booking status -->
+    <color name="colorBooked">#FFCDD2</color> <!-- Light red for booked -->
+    <color name="colorAvailable">#C1F1C3</color> <!-- Light green for available -->
+
+        <color name="textPrimary">#212121</color>
+        <color name="textSecondary">#757575</color>
+        <color name="dividerColor">#E0E0E0</color>
+
+        <color name="cardBackground">#FAFAFA</color>
+    <!-- Màu chính -->
+
+    <!-- Màu nhạt hơn của colorPrimary -->
+    <color name="colorPrimaryLight">#C5CAE9</color>
+    <!-- Các màu khác nếu cần -->
+
+
+</resources>

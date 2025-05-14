@@ -1,0 +1,402 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white">
+
+    <!-- Nút back -->
+    <ImageView
+        android:id="@+id/btn_back_detail_owner"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:padding="10dp"
+        android:layout_marginTop="15dp"
+        android:layout_marginStart="16dp"
+        android:src="@drawable/ic_arrow_back"
+        app:tint="@color/black"
+        android:contentDescription="@string/back_button"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:clickable="true"
+        android:focusable="true"/>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:layout_below="@id/btn_back_detail_owner">
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <!-- Card chứa ảnh -->
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="20dp"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="4dp">
+
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content">
+
+                        <ImageView
+                            android:id="@+id/img_detail_owner"
+                            android:layout_width="match_parent"
+                            android:layout_height="220dp"
+                            android:scaleType="centerCrop"
+                            android:adjustViewBounds="true"
+                            android:src="@drawable/sanbong"
+                            android:contentDescription="@string/san_bong_image"
+                            android:clickable="true"
+                            android:focusable="true"/>
+
+                        <ImageView
+                            android:id="@+id/btn_camera"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:padding="8dp"
+                            android:src="@drawable/ic_camera"
+                            app:tint="@color/colorPrimary"
+                            android:layout_gravity="bottom|start"
+                            android:layout_margin="10dp"
+                            android:background="@drawable/circle_background"
+                            android:clickable="true"
+                            android:focusable="true"/>
+                    </FrameLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Tiêu đề sân bóng -->
+                <TextView
+                    android:id="@+id/txt_title_detail_owner"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/ten_san"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/textPrimary"
+                    android:layout_marginBottom="8dp"/>
+
+                <!-- EditText cho tên sân (ẩn ban đầu) -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/input_layout_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone"
+                    android:layout_marginBottom="8dp">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/edt_title_detail_owner"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Tên sân"
+                        android:textSize="16sp"/>
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- Thông tin với icon -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginBottom="24dp"
+                    android:background="@drawable/rounded_background"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="16dp">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@drawable/ic_duration"
+                            app:tint="@color/colorPrimary"
+                            android:layout_marginEnd="16dp"
+                            android:contentDescription="@string/operating_hours" />
+
+                        <TextView
+                            android:id="@+id/txt_gio_item_detail"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="05:00 - 24:00"
+                            android:textColor="@android:color/black"
+                            android:textSize="14sp"
+                            tools:ignore="HardcodedText" />
+                    </LinearLayout>
+
+                    <!-- EditText cho giờ hoạt động (ẩn ban đầu) -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/input_layout_gio"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:visibility="gone"
+                        android:layout_marginBottom="16dp">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/edt_gio_detail_owner"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Giờ hoạt động (VD: 05:00 - 24:00)"
+                            android:textSize="16sp"/>
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Địa chỉ -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="16dp">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@drawable/ic_location"
+                            app:tint="@color/colorPrimary"
+                            android:layout_marginEnd="16dp"/>
+
+                        <com.google.android.material.textview.MaterialTextView
+                            android:id="@+id/txt_diaChi_detail_owner"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/dia_chi"
+                            android:textSize="16sp"
+                            android:textColor="@color/textPrimary"/>
+                    </LinearLayout>
+
+                    <!-- EditText cho địa chỉ (ẩn ban đầu) -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/input_layout_diaChi"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:visibility="gone"
+                        android:layout_marginBottom="16dp">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/edt_diaChi_detail_owner"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Địa chỉ"
+                            android:textSize="16sp"/>
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Số điện thoại -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="16dp">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@drawable/ic_phone"
+                            app:tint="@color/colorPrimary"
+                            android:layout_marginEnd="16dp"/>
+
+                        <com.google.android.material.textview.MaterialTextView
+                            android:id="@+id/txt_sdt_detail_owner"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/so_dien_thoai"
+                            android:textSize="16sp"
+                            android:textColor="@color/textPrimary"/>
+                    </LinearLayout>
+
+                    <!-- EditText cho số điện thoại (ẩn ban đầu) -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/input_layout_sdt"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:visibility="gone"
+                        android:layout_marginBottom="16dp">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/edt_sdt_detail_owner"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Số điện thoại"
+                            android:inputType="phone"
+                            android:textSize="16sp"/>
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Email -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@drawable/ic_email"
+                            app:tint="@color/colorPrimary"
+                            android:layout_marginEnd="16dp"/>
+
+                        <com.google.android.material.textview.MaterialTextView
+                            android:id="@+id/txt_Email_detail_owner"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/email"
+                            android:textSize="16sp"
+                            android:textColor="@color/textPrimary"/>
+                    </LinearLayout>
+
+                    <!-- EditText cho email (ẩn ban đầu) -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/input_layout_email"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:visibility="gone">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/edt_Email_detail_owner"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Email"
+                            android:inputType="textEmailAddress"
+                            android:textSize="16sp"/>
+                    </com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
+
+                <!-- Card giá cả -->
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="24dp"
+                    app:cardElevation="6dp"
+                    app:cardCornerRadius="16dp"
+                    app:cardBackgroundColor="@color/cardBackground">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="20dp">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/bang_gia_chi_tiet"
+                            android:textColor="@color/colorPrimary"
+                            android:textSize="20sp"
+                            android:textStyle="bold"
+                            android:layout_marginBottom="16dp"/>
+
+                        <!-- Container danh sách giá (non-time-range slots) -->
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/price_detail_list_owner"
+                            android:layout_width="match_parent"
+                            android:layout_height="200dp"
+                            android:layout_marginBottom="16dp"/>
+
+                        <!-- Add empty state TextView -->
+                        <TextView
+                            android:id="@+id/empty_state_view"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Chưa có khung giờ nào"
+                            android:textColor="@color/textSecondary"
+                            android:textSize="14sp"
+                            android:padding="16dp"
+                            android:visibility="gone"/>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Container cho các nút -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="16dp"
+                    android:weightSum="3">
+
+                    <!-- Nút xác nhận -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_xacnhan_detail_owner"
+                        android:layout_width="0dp"
+                        android:layout_height="60dp"
+                        android:layout_weight="1"
+                        android:text="@string/xac_nhan"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/white"
+                        android:backgroundTint="@color/colorPrimary"
+                        app:cornerRadius="12dp"
+                        app:icon="@drawable/ic_calendar"
+                        app:iconGravity="textStart"
+                        app:iconPadding="8dp"
+                        app:iconSize="20dp"
+                        app:iconTint="@color/white"
+                        app:rippleColor="@color/colorPrimaryDark"
+                        android:elevation="8dp"
+                        android:layout_marginEnd="8dp"/>
+
+                    <!-- Nút cập nhật -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_update_san"
+                        android:layout_width="0dp"
+                        android:layout_height="60dp"
+                        android:layout_weight="1"
+                        android:text="Cập nhật"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/white"
+                        android:backgroundTint="#2196F3"
+                        app:cornerRadius="12dp"
+                        app:rippleColor="@color/colorPrimaryDark"
+                        android:elevation="8dp"
+                        android:layout_marginEnd="8dp"/>
+
+                    <!-- Nút xóa sân -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_delete_san"
+                        android:layout_width="0dp"
+                        android:layout_height="60dp"
+                        android:layout_weight="1"
+                        android:text="Xóa sân"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/white"
+                        android:backgroundTint="#FA4444"
+                        app:cornerRadius="12dp"
+                        app:rippleColor="@color/color_red"
+                        android:elevation="8dp"
+                        android:layout_marginEnd="8dp"/>
+                </LinearLayout>
+
+                <!-- Nút lưu (ẩn ban đầu) -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_save_san"
+                    android:layout_width="match_parent"
+                    android:layout_height="60dp"
+                    android:text="Lưu"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/white"
+                    android:backgroundTint="@color/color_green"
+                    app:cornerRadius="12dp"
+                    app:rippleColor="@color/color_green"
+                    android:elevation="8dp"
+                    android:visibility="gone"/>
+            </LinearLayout>
+
+            <!-- ProgressBar -->
+            <ProgressBar
+                android:id="@+id/progress_bar"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true"
+                android:visibility="gone" />
+        </RelativeLayout>
+    </ScrollView>
+</RelativeLayout>

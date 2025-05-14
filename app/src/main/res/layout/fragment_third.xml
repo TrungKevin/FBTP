@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#B3E3B5"
+    android:fitsSystemWindows="true">
+
+    <!-- LinearLayout chứa hướng dẫn ban đầu -->
+    <LinearLayout
+        android:id="@+id/initialLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:paddingBottom="100dp">
+
+        <TextView
+            android:id="@+id/textView"
+            android:layout_width="200dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="32dp"
+            android:gravity="center"
+            android:text="Vui lòng bấm vào để load thông tin !"
+            android:textColor="@android:color/black"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- LinearLayout chứa tiêu đề và RecyclerView -->
+    <LinearLayout
+        android:id="@+id/contentLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:visibility="gone"
+        android:paddingTop="16dp">
+
+        <!-- TextView tiêu đề -->
+        <TextView
+            android:id="@+id/tvTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Danh sách các sân của bạn"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="@android:color/black"
+            android:gravity="center"
+            android:padding="16dp"
+            android:background="@color/colorPrimaryLight"/>
+
+        <!-- RecyclerView -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rcv_upLoad_owner"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingBottom="80dp"/>
+    </LinearLayout>
+
+    <!-- ProgressBar toàn màn hình -->
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:visibility="gone"
+        style="?android:attr/progressBarStyleLarge" />
+
+    <!-- FloatingActionButton -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/bnt_Add"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/ic_add"
+        android:contentDescription="Nút thêm"
+        app:backgroundTint="@color/colorPrimary"
+        app:tint="@android:color/white"
+        app:fabCustomSize="64dp"
+        app:maxImageSize="48dp"
+        app:elevation="6dp"
+        app:pressedTranslationZ="12dp"
+        app:layout_anchor="@id/initialLayout"
+        app:layout_anchorGravity="center"/>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

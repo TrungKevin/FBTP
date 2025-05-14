@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".owner.activity.ThietLapNgayGio">
+
+    <!-- AppBar với thanh gradient -->
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@android:color/transparent"
+        app:elevation="0dp">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            app:title="Thiết lập lịch"
+            app:titleTextColor="@color/colorPrimary"
+            app:navigationIcon="@drawable/ic_arrow_back" />
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/white"
+        android:clipToPadding="false"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- Header Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="#E8F5E9"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/txt_chonNgay"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="Thiết lập lịch hoạt động"
+                        android:textColor="@color/colorPrimary"
+                        android:textSize="22sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.textview.MaterialTextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:gravity="center"
+                        android:text="Khung giờ dưới đây áp dụng cho tất cả các ngày. Chọn ngày cụ thể để thêm hoặc chỉnh sửa khung giờ."
+                        android:textColor="@color/textSecondary"
+                        android:textSize="14sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Calendar Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="12dp">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_marginEnd="12dp"
+                            android:src="@drawable/ic_calendar"
+                            app:tint="@color/colorPrimary" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Chọn ngày ( khi cần thêm/chỉnh sửa giờ )"
+                            android:textColor="@color/textPrimary"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <!-- Calendar horizontal -->
+                    <HorizontalScrollView
+                        android:id="@+id/scV_calenda_thietLap"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:scrollbars="none"
+                        android:fadeScrollbars="true"
+                        android:overScrollMode="never">
+
+                        <LinearLayout
+                            android:id="@+id/calendar_Container"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:paddingStart="2dp"
+                            android:paddingEnd="8dp">
+
+                            <!-- Item ngày mẫu (sẽ được tạo động) -->
+                            <com.google.android.material.card.MaterialCardView
+                                android:layout_width="76dp"
+                                android:layout_height="100dp"
+                                android:layout_marginEnd="8dp"
+                                app:cardCornerRadius="12dp"
+                                app:cardElevation="1dp"
+                                app:strokeColor="@color/dividerColor"
+                                app:strokeWidth="1dp">
+
+                                <LinearLayout
+                                    android:id="@+id/item_calendar_day"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:gravity="center"
+                                    android:orientation="vertical"
+                                    android:padding="8dp">
+
+                                    <TextView
+                                        android:id="@+id/tv_day"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="T2"
+                                        android:textColor="@color/textSecondary"
+                                        android:textSize="14sp" />
+
+                                    <TextView
+                                        android:id="@+id/tv_date"
+                                        android:layout_width="36dp"
+                                        android:layout_height="36dp"
+                                        android:layout_marginTop="4dp"
+                                        android:background="@drawable/circle_date_background"
+                                        android:gravity="center"
+                                        android:text="15"
+                                        android:textColor="@color/white"
+                                        android:textSize="20sp"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:id="@+id/tv_month"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="6dp"
+                                        android:text="Tháng 4"
+                                        android:textColor="@color/textSecondary"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+                            </com.google.android.material.card.MaterialCardView>
+
+                            <!-- Các ngày khác sẽ được tạo động -->
+                        </LinearLayout>
+                    </HorizontalScrollView>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Khung giờ Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="12dp">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_marginEnd="12dp"
+                            android:src="@drawable/ic_schedule"
+                            app:tint="@color/colorPrimary" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Khung giờ làm việc"
+                            android:textColor="@color/textPrimary"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <!-- Nút thêm khung giờ -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_add_khungGio"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:text="Thêm"
+                            android:textSize="12sp"
+                            android:textColor="@color/colorPrimary"
+                            app:icon="@drawable/ic_add"
+                            app:iconTint="@color/colorPrimary"
+                            app:iconSize="16dp"
+                            app:strokeColor="@color/colorPrimary"
+                            app:cornerRadius="18dp" />
+                    </LinearLayout>
+
+                    <!-- RecyclerView show time slots -->
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rv_khungGio"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
+                        app:spanCount="3"
+                        tools:itemCount="6"
+                        tools:listitem="@layout/item_khung_gio" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Nút xác nhận -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_xacNhan"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="8dp"
+                android:backgroundTint="@color/colorPrimary"
+                android:text="Xác nhận lịch"
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                app:cornerRadius="28dp"
+                app:elevation="4dp" />
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

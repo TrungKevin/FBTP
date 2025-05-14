@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "938360515785",
+    "project_id": "fbtp-2c94a",
+    "storage_bucket": "fbtp-2c94a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:938360515785:android:a8da7c91a959db38023118",
+        "android_client_info": {
+          "package_name": "com.trungkien.fbtp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC4us4OPOPT8Leq00KoZrgZhhmkdWE-M_A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

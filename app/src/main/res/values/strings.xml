@@ -1,0 +1,35 @@
+<resources>
+    <string name="app_name">FBTP</string>
+    <string name="ellipsis">&#8230;</string>
+    <string name="menu_dashboard">Dashboard</string>
+    <string name="menu_leaderboard">Leaderboard</string>
+    <string name="menu_store">Store</string>
+    <string name="menu_profile">Profile</string>
+    <string name="toolbar_title">Chi tiết</string>
+    <string name="back_button_description">Back</string>
+    <string name="soccer_logo">Soccer Logo</string>
+    <string name="badminton_logo">Badminton Logo</string>
+    <string name="pickleball_logo">Pickleball Logo</string>
+    <string name="tennis_logo">Tennis Logo</string>
+    <string name="field_image">Field Image</string>
+    <string name="ten_san">Tên Sân:</string>
+    <string name="dia_chi">Địa chỉ:</string>
+    <string name="so_dien_thoai">Số điện thoại:</string>
+    <string name="email">Email:</string>
+    <string name="bang_gia">Bảng giá giờ:</string>
+    <string name="bang_gia_chi_tiet">Bảng giá chi tiết</string>
+    <string name="dat_lich">Đặt lịch ngay</string>
+    <string name="san_bong_image">Ảnh sân bóng</string>
+    <string name="app_logo">Logo ứng dụng</string>
+    <string name="search">Tìm kiếm</string>
+    <string name="search_hint">Tìm kiếm sân...</string>
+    <string name="home">Trang chủ</string>
+    <string name="back_to_top">Lên đầu</string>
+    <string name="back_button">Quay lại</string>
+    <string name="xac_nhan">Xác nhận </string>
+    <string name="cap_nhat_gia_gio">Bảng cập nhật giá giờ :</string>
+    <string name="operating_hours" />
+    <string name="club_logo">Club logo:</string>
+    <string name="app_banner">app_banner</string>
+
+</resources>

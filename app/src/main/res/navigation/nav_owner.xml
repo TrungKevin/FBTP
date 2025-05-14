@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_owner"
+    app:startDestination="@id/third_fragment">
+
+    <!-- Owner - Third Fragment -->
+    <fragment
+        android:id="@+id/third_fragment"
+        android:name="com.trungkien.fbtp.owner.fragment.ThirdFragment"
+        android:label="Thống kê"
+        tools:layout="@layout/fragment_third">
+        <action
+            android:id="@+id/action_thirdFragment_to_fourthFragment"
+            app:destination="@id/fourth_fragment" />
+        <action
+            android:id="@+id/action_thirdFragment_to_fiveFragment"
+            app:destination="@id/five_fragment" />
+    </fragment>
+
+    <!-- Owner - Fourth Fragment -->
+    <fragment
+        android:id="@+id/fourth_fragment"
+        android:name="com.trungkien.fbtp.owner.fragment.FourthFragment"
+        android:label="Quản lý lịch"
+        tools:layout="@layout/fragment_fourth">
+        <action
+            android:id="@+id/action_fourthFragment_to_thirdFragment"
+            app:destination="@id/third_fragment" />
+        <action
+            android:id="@+id/action_fourthFragment_to_fiveFragment"
+            app:destination="@id/five_fragment" />
+        <argument
+            android:name="username"
+            app:argType="string"
+            android:defaultValue="Không có dữ liệu" />
+        <argument
+            android:name="coSoID"
+            app:argType="string"
+            android:defaultValue="" />
+        <argument
+            android:name="courtType"
+            app:argType="string"
+            android:defaultValue="" />
+    </fragment>
+
+    <!-- Owner - Fifth Fragment -->
+    <fragment
+        android:id="@+id/five_fragment"
+        android:name="com.trungkien.fbtp.owner.fragment.FiveFragment"
+        android:label="Tài khoản"
+        tools:layout="@layout/five_fragment">
+        <action
+            android:id="@+id/action_fiveFragment_to_thirdFragment"
+            app:destination="@id/third_fragment" />
+        <action
+            android:id="@+id/action_fiveFragment_to_fourthFragment"
+            app:destination="@id/fourth_fragment" />
+        <argument
+            android:name="username"
+            app:argType="string"
+            android:defaultValue="Không có dữ liệu" />
+    </fragment>
+</navigation>

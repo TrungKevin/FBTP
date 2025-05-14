@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="@drawable/background_gradient">
+
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:visibility="gone"
+        android:layout_marginBottom="16dp"/>
+    <!-- Nút back arrow -->
+    <ImageView
+        android:id="@+id/btn_back_register"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:src="@drawable/ic_arrow_back"
+        android:contentDescription="@string/back_button"
+        app:tint="@android:color/white"
+        android:clickable="true"
+        android:focusable="true"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Tiêu đề Sign Up -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Sign Up"
+        android:textColor="#FFFFFF"
+        android:textSize="32sp"
+        android:textStyle="bold"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="32dp" />
+
+    <!-- Email Field -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:textColorHint="#E0E0E0"
+        android:layout_marginBottom="8dp">
+
+        <EditText
+            android:id="@+id/edtEmail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Email"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#E0E0E0"
+            android:backgroundTint="#80FFFFFF" />
+    </com.google.android.material.textfield.TextInputLayout>
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Email phải là @gmail.com hoặc @email.com"
+        android:textColor="#BFBABA"
+        android:textSize="12sp"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Username Field -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:textColorHint="#E0E0E0"
+        android:layout_marginBottom="8dp">
+
+        <EditText
+            android:id="@+id/edt_username"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Username"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#E0E0E0"
+            android:backgroundTint="#80FFFFFF"
+            android:inputType="text" /> <!-- Đổi inputType từ textPassword sang text -->
+    </com.google.android.material.textfield.TextInputLayout>
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Tên hiển thị của bạn"
+        android:textColor="#BFBABA"
+        android:textSize="12sp"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Password Field -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:textColorHint="#E0E0E0"
+        android:layout_marginBottom="8dp">
+
+        <EditText
+            android:id="@+id/etPassword"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Password"
+            android:inputType="textPassword"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#E0E0E0"
+            android:backgroundTint="#80FFFFFF" />
+    </com.google.android.material.textfield.TextInputLayout>
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Mật khẩu phải từ 6 ký tự trở lên"
+        android:textColor="#BFBABA"
+        android:textSize="12sp"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Confirm Password Field -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:textColorHint="#E0E0E0"
+        android:layout_marginBottom="8dp">
+
+        <EditText
+            android:id="@+id/etConfirmPassword"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Confirm Password"
+            android:inputType="textPassword"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#E0E0E0"
+            android:backgroundTint="#80FFFFFF" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- Phone Field -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:textColorHint="#E0E0E0"
+        android:layout_marginBottom="8dp">
+
+        <EditText
+            android:id="@+id/edt_sdt"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Phone (0xxxxxxxxx)"
+            android:inputType="phone"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#E0E0E0"
+        android:backgroundTint="#80FFFFFF" />
+    </com.google.android.material.textfield.TextInputLayout>
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Vui lòng nhập số điện thoại của bạn"
+        android:textColor="#BFBABA"
+        android:textSize="12sp"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Spinner chọn loại tài khoản -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+        android:textColorHint="#E0E0E0"
+        android:hint="Bạn là:"
+        android:layout_marginBottom="24dp">
+
+        <AutoCompleteTextView
+            android:id="@+id/spinner_dangKy"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@null"
+            android:inputType="none"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#E0E0E0" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- Register Button -->
+    <Button
+        android:id="@+id/btnRegister"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="Register"
+        android:textColor="#FFFFFF"
+        android:backgroundTint="#FF6F61"
+        android:textAllCaps="false"
+        android:textSize="16sp"
+        android:layout_marginBottom="24dp"
+        android:padding="12dp"
+        android:elevation="4dp" />
+
+    <!-- Login Text -->
+    <TextView
+        android:id="@+id/txtLogin"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Already have an account? Sign In"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:layout_gravity="center_horizontal"
+        android:padding="8dp" />
+</LinearLayout>
