@@ -52,10 +52,11 @@ class UploadInfoActivity : AppCompatActivity() {
     private val sportTypes = listOf("Football", "Badminton", "Pickleball", "Tennis")
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
-    private lateinit var khungGioAdapter: KhungGioAdapter
+    private lateinit var khungGioAdapter: KhungGioAdapter // Use lateinit var to avoid reassignment issues
     private var coSoID: String = ""
     private val timeFramesByDate = mutableMapOf<String, TimeFrame>()
     private var courtID: String = ""
+    private var selectedDate: String = ""
 
     companion object {
         private const val TAG = "UploadInfoActivity"
@@ -73,7 +74,7 @@ class UploadInfoActivity : AppCompatActivity() {
                     timeFramesByDate[timeFrame.date] = timeFrame
                 }
                 showToast("Đã thiết lập khung giờ cho ${timeFrames.size} ngày")
-                updateTimeSlotsForAllDates()
+                updateTimeSlotsForSelectedDate()
             } else {
                 showToast("Không nhận được khung giờ")
             }
@@ -94,10 +95,11 @@ class UploadInfoActivity : AppCompatActivity() {
             return
         }
 
-        val adapter = ArrayAdapter(this, R.layout.dropdown_menu_item, sportTypes).apply {
+        // Set up ArrayAdapter for spinner
+        val spinnerAdapter = ArrayAdapter(this, R.layout.dropdown_menu_item, sportTypes).apply {
             setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         }
-        binding.spinner.setAdapter(adapter)
+        binding.spinner.setAdapter(spinnerAdapter)
         binding.spinner.setText("", false)
 
         binding.spinner.setOnItemClickListener { _, _, position, _ ->
@@ -159,9 +161,12 @@ class UploadInfoActivity : AppCompatActivity() {
             }
         }
 
-        khungGioAdapter = KhungGioAdapter(emptyList(), onItemClick = { position -> })
-        binding.rcvKhungGioUpLoad.adapter = khungGioAdapter
-        binding.rcvKhungGioUpLoad.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        // Initialize KhungGioAdapter for rcv_khungGio_upLoad
+        khungGioAdapter = KhungGioAdapter(emptyList()) { position -> }
+        binding.rcvKhungGioUpLoad.apply {
+            adapter = khungGioAdapter
+            layoutManager = GridLayoutManager(this@UploadInfoActivity, 3)
+        }
 
         setupCalendar()
 
@@ -176,9 +181,9 @@ class UploadInfoActivity : AppCompatActivity() {
             }
 
             val courtSize = when {
-                binding.rdSan5.isChecked -> "5 vs 5"
-                binding.rdSan7.isChecked -> "7 vs 7"
-                binding.rdSan11.isChecked -> "11 vs 11"
+                binding.rdSan5.isChecked -> binding.rdSan5.text.toString()
+                binding.rdSan7.isChecked -> binding.rdSan7.text.toString()
+                binding.rdSan11.isChecked -> binding.rdSan11.text.toString()
                 else -> ""
             }
 
@@ -202,7 +207,7 @@ class UploadInfoActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        updateTimeSlotsForAllDates()
+        updateTimeSlotsForSelectedDate()
     }
 
     private fun setupCalendar() {
@@ -230,27 +235,42 @@ class UploadInfoActivity : AppCompatActivity() {
             calendarItems.add(CalendarItem(dayOfWeek, day, month, dateStr))
         }
 
+        selectedDate = calendarItems.firstOrNull()?.date ?: ""
+
         val calendarAdapter = CalendarAdapter(calendarItems) { date ->
-            updateTimeSlotsForAllDates()
+            selectedDate = date
+            updateTimeSlotsForSelectedDate()
         }
         binding.rcvCalendaUpLoad.adapter = calendarAdapter
+        updateTimeSlotsForSelectedDate()
     }
 
-    private fun updateTimeSlotsForAllDates() {
-        val timeSlots = timeFramesByDate.values.flatMap { timeFrame ->
+    private fun updateTimeSlotsForSelectedDate() {
+        val timeFrame = timeFramesByDate[selectedDate]
+        val timeSlots = if (timeFrame != null) {
             timeFrame.period.map { period ->
                 TimeSlot(
                     price = 0.0,
                     courtSize = binding.spinner.text.toString().trim(),
                     period = period,
-                    session = "Sáng",
+                    session = when {
+                        period.startsWith("08") || period.startsWith("09") || period.startsWith("10") || period.startsWith("11") -> "Sáng"
+                        period.startsWith("12") || period.startsWith("13") || period.startsWith("14") || period.startsWith("15") || period.startsWith("16") -> "Chiều"
+                        else -> "Tối"
+                    },
                     isTimeRange = true,
-                    courtID = courtID,
-                    coSoID = coSoID
+                    courtID = timeFrame.courtID,
+                    coSoID = timeFrame.coSoID
                 )
-            }
-        }.sortedBy { it.period }
+            }.sortedBy { it.period }
+        } else {
+            emptyList()
+        }
+
         khungGioAdapter.updateData(timeSlots)
+        if (timeSlots.isEmpty()) {
+            showToast("Chưa thiết lập khung giờ cho ngày $selectedDate")
+        }
     }
 
     private fun checkStoragePermissionAndOpenPicker() {
@@ -310,9 +330,9 @@ class UploadInfoActivity : AppCompatActivity() {
         val email = binding.edtEmailNhap.text.toString().trim()
         val loaiSan = binding.spinner.text.toString().trim()
         val courtSize = when {
-            binding.rdSan5.isChecked -> "5 vs 5"
-            binding.rdSan7.isChecked -> "7 vs 7"
-            binding.rdSan11.isChecked -> "11 vs 11"
+            binding.rdSan5.isChecked -> binding.rdSan5.text.toString()
+            binding.rdSan7.isChecked -> binding.rdSan7.text.toString()
+            binding.rdSan11.isChecked -> binding.rdSan11.text.toString()
             else -> ""
         }
 

@@ -15,6 +15,7 @@
         android:orientation="vertical">
 
         <TableLayout
+            android:id="@+id/data_row"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:stretchColumns="0,1,2,3"
@@ -69,9 +70,13 @@
 
             <!-- Data Row -->
             <TableRow
+
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@android:color/white">
+                app:background="@android:color/white"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackground">
 
                 <TextView
                     android:id="@+id/txt_session"

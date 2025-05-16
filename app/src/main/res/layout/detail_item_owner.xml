@@ -98,6 +98,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:hint="Tên sân"
+                        android:textColor="@color/black"
                         android:textSize="16sp"/>
                 </com.google.android.material.textfield.TextInputLayout>
 
@@ -147,6 +148,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:hint="Giờ hoạt động (VD: 05:00 - 24:00)"
+                            android:textColor="@color/black"
                             android:textSize="16sp"/>
                     </com.google.android.material.textfield.TextInputLayout>
 
@@ -186,6 +188,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:hint="Địa chỉ"
+                            android:textColor="@color/black"
                             android:textSize="16sp"/>
                     </com.google.android.material.textfield.TextInputLayout>
 
@@ -226,6 +229,7 @@
                             android:layout_height="wrap_content"
                             android:hint="Số điện thoại"
                             android:inputType="phone"
+                            android:textColor="@color/black"
                             android:textSize="16sp"/>
                     </com.google.android.material.textfield.TextInputLayout>
 
@@ -264,9 +268,60 @@
                             android:layout_height="wrap_content"
                             android:hint="Email"
                             android:inputType="textEmailAddress"
-                            android:textSize="16sp"/>
+                            android:textSize="16sp"
+                            android:textColor="@color/black"/>
                     </com.google.android.material.textfield.TextInputLayout>
                 </LinearLayout>
+
+                <!-- Card giá cả -->
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="24dp"
+                    app:cardElevation="6dp"
+                    app:cardCornerRadius="16dp"
+                    app:cardBackgroundColor="@color/cardBackground">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="20dp">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:padding="5dp">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/bang_ngayGio"
+                            android:textColor="@color/colorPrimary"
+                            android:textSize="20sp"
+                            android:textStyle="bold"
+                            android:layout_marginBottom="16dp"/>
+
+
+                    </LinearLayout>
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rcv_calenda_owner"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+
+                            />
+
+                        <!-- RecyclerView show time slots -->
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rcv_khungGio_owner"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="16dp"
+                            app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
+                            app:spanCount="3"
+                            />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
 
                 <!-- Card giá cả -->
                 <com.google.android.material.card.MaterialCardView
@@ -296,7 +351,7 @@
                         <androidx.recyclerview.widget.RecyclerView
                             android:id="@+id/price_detail_list_owner"
                             android:layout_width="match_parent"
-                            android:layout_height="200dp"
+                            android:layout_height="300dp"
                             android:layout_marginBottom="16dp"/>
 
                         <!-- Add empty state TextView -->

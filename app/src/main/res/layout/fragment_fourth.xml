@@ -17,9 +17,10 @@
         <com.google.android.material.textview.MaterialTextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/cap_nhat_gia_gio"
+            android:text="@string/dbgg"
             android:textColor="@color/colorPrimary"
-            android:textSize="20sp"
+            android:textSize="25sp"
+            android:gravity="center"
             android:layout_marginTop="30dp"
             android:textStyle="bold"
             android:layout_marginBottom="16dp" />
@@ -34,12 +35,6 @@
             android:paddingVertical="16dp"
             android:background="@drawable/rounded_background"
             android:layout_marginBottom="16dp">
-
-            <!-- RecyclerView cho các input -->
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rcv_add_khungGio"
-                android:layout_width="match_parent"
-                android:layout_height="300dp" />
 
             <!-- Hàng 1: Buổi + Cỡ sân -->
             <LinearLayout
@@ -198,20 +193,52 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- Nút xác nhận -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_xacNhan"
+                style="@style/Widget.MaterialComponents.Button"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="12dp"
+                android:layout_marginHorizontal="12dp"
+                android:text="Thêm bảng"
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                app:backgroundTint="@color/colorPrimary"
+                app:cornerRadius="8dp" />
+
+            <!-- Tiêu đề -->
+            <com.google.android.material.textview.MaterialTextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/cap_nhat_gia_gio"
+                android:textColor="@color/colorPrimary"
+                android:textSize="20sp"
+                android:layout_marginTop="30dp"
+                android:textStyle="bold"
+                android:layout_marginBottom="16dp" />
+
+            <!-- Container cho RecyclerView và ProgressBar -->
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <!-- ProgressBar hiển thị phía trên RecyclerView -->
+                <ProgressBar
+                    android:id="@+id/progress_bar"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:visibility="gone" />
+
+                <!-- RecyclerView cho các input -->
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rcv_add_khungGio"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </FrameLayout>
+
         </LinearLayout>
 
-        <!-- Nút xác nhận -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_xacNhan"
-            style="@style/Widget.MaterialComponents.Button"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginTop="12dp"
-            android:layout_marginHorizontal="12dp"
-            android:text="Xác nhận"
-            android:textColor="@color/white"
-            android:textSize="16sp"
-            app:backgroundTint="@color/colorPrimary"
-            app:cornerRadius="8dp" />
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

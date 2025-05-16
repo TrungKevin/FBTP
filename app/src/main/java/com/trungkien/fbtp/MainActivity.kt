@@ -34,7 +34,6 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         auth = Firebase.auth
-        Log.d("+++++++++++", " auth.currentUser : ${auth.currentUser}")
         if (auth.currentUser == null) {
             Log.d(TAG, "User not authenticated, redirecting to AccountActivity")
             startActivity(Intent(this, AccountActivity::class.java))
@@ -51,16 +50,6 @@ class MainActivity : AppCompatActivity() {
 
         navigateToStartDestination(isOwner, username)
         setupBottomBar(isOwner)
-    }
-
-    override fun onStart() {
-        super.onStart()
-        auth.addAuthStateListener { firebaseAuth ->
-            if (firebaseAuth.currentUser == null) {
-                startActivity(Intent(this, AccountActivity::class.java))
-                finish()
-            }
-        }
     }
 
     override fun onNewIntent(intent: Intent) {

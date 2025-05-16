@@ -11,7 +11,6 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Bundle
-import android.provider.MediaStore
 import android.util.Base64
 import android.util.Log
 import android.view.View
@@ -20,14 +19,21 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.bumptech.glide.Glide
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.WriteBatch
+import com.trungkien.fbtp.Adapter.CalendarDay
 import com.trungkien.fbtp.AddPriceBoardAdapter
+import com.trungkien.fbtp.Adapter.CalendarDayAdapter
+import com.trungkien.fbtp.Adapter.KhungGioAdapter
 import com.trungkien.fbtp.R
 import com.trungkien.fbtp.databinding.DetailItemOwnerBinding
+import com.trungkien.fbtp.model.Court
 import com.trungkien.fbtp.model.SportFacility
+import com.trungkien.fbtp.model.TimeFrame
 import com.trungkien.fbtp.model.TimeSlot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -36,33 +42,32 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.ByteArrayOutputStream
-import java.net.InetAddress
+import java.text.SimpleDateFormat
+import java.util.*
 
 class ItemDetailOwnerActivity : AppCompatActivity() {
 
     private lateinit var binding: DetailItemOwnerBinding
     private lateinit var priceBoardAdapter: AddPriceBoardAdapter
+    private lateinit var khungGioAdapter: KhungGioAdapter
     private val timeSlots = mutableListOf<TimeSlot>()
     private var coSoID: String = ""
     private var isEditing = false
-    private var isUpdateSanPressed = false // Biến theo dõi trạng thái btn_update_san
+    private var isUpdateSanPressed = false
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
-    private val ownerID: String by lazy {
-        auth.currentUser?.uid ?: ""
-    }
+    private val ownerID: String by lazy { auth.currentUser?.uid ?: "" }
+    private val timeFramesByDate = mutableMapOf<String, TimeFrame>()
+    private var selectedDate: String? = null
 
-    // ActivityResultLauncher để chọn ảnh từ thư viện
     private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let { handleImageUri(it) }
     }
 
-    // ActivityResultLauncher để chụp ảnh từ camera
     private val takePictureLauncher = registerForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap: Bitmap? ->
         bitmap?.let { handleImageBitmap(it) }
     }
 
-    // ActivityResultLauncher để yêu cầu quyền
     private val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
         val cameraGranted = permissions[Manifest.permission.CAMERA] == true
         val storageGranted = permissions[Manifest.permission.READ_EXTERNAL_STORAGE] == true ||
@@ -71,7 +76,6 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
         if (cameraGranted && storageGranted) {
             showImageSourceDialog()
         } else {
-            // Kiểm tra xem có nên hiển thị giải thích
             val shouldShowRationale = shouldShowRequestPermissionRationale(Manifest.permission.CAMERA) ||
                     shouldShowRequestPermissionRationale(Manifest.permission.READ_EXTERNAL_STORAGE) ||
                     shouldShowRequestPermissionRationale(Manifest.permission.READ_MEDIA_IMAGES)
@@ -96,15 +100,11 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
             return
         }
 
-        // Check if Firestore migration is needed
         val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
         val migrationCompleted = prefs.getBoolean("firestore_migration_completed", false)
         if (!migrationCompleted) {
             migrateFirestoreFields()
         }
-
-        // Log current UID for debugging
-        Log.d("ItemDetailOwnerActivity", "Current UID: ${auth.currentUser?.uid}")
 
         val image = intent.getStringExtra("image")
         if (!image.isNullOrEmpty()) {
@@ -128,49 +128,130 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
 
         setupRecyclerView()
         setupListeners()
+        setupCalendar()
         loadFacilityDetails()
         listenToFirestoreChanges()
+        loadTimeFrames()
     }
 
-    private fun migrateFirestoreFields() {
+    private fun setupCalendar() {
+        binding.rcvCalendaOwner.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        val calendarDays = mutableListOf<CalendarDay>()
+
+        // Create calendar days for the next 14 days
+        for (i in 0 until 14) {
+            val date = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, i) }
+            val dateStr = dateFormat.format(date.time)
+            val calendarDay = CalendarDayAdapter.createCalendarDay(dateStr, isFutureOnly = false)
+            calendarDay?.let { calendarDays.add(it) }
+        }
+
+        val calendarAdapter = CalendarDayAdapter(calendarDays) { date ->
+            selectedDate = date
+            updateTimeSlotsForDate()
+        }
+        binding.rcvCalendaOwner.adapter = calendarAdapter
+    }
+
+    private suspend fun getCourtSize(courtID: String): String? {
+        return try {
+            val courtDoc = db.collection("courts").document(courtID).get().await()
+            courtDoc.toObject(Court::class.java)?.size
+        } catch (e: Exception) {
+            Log.e("ItemDetailOwnerActivity", "Error fetching court size: ${e.message}", e)
+            null
+        }
+    }
+
+    private fun loadTimeFrames() {
         lifecycleScope.launch {
             try {
-                // Get all documents in the sport_facilities collection
-                val snapshot = db.collection("sport_facilities").get().await()
-                val batch = db.batch()
-
-                snapshot.documents.forEach { doc ->
-                    val data = doc.data ?: return@forEach
-                    val updatedData = data.toMutableMap()
-
-                    // Check for lowercase buoi and hour fields
-                    if (data.containsKey("buoi")) {
-                        updatedData["Buoi"] = data["buoi"]
-                        updatedData.remove("buoi")
-                    }
-                    if (data.containsKey("hour")) {
-                        updatedData["Hour"] = data["hour"]
-                        updatedData.remove("hour")
-                    }
-
-                    // Only update if changes were made
-                    if (updatedData != data) {
-                        batch.set(doc.reference, updatedData)
+                val snapshot = db.collection("time_frames")
+                    .whereEqualTo("coSoID", coSoID)
+                    .get()
+                    .await()
+                timeFramesByDate.clear()
+                for (doc in snapshot.documents) {
+                    val timeFrame = doc.toObject(TimeFrame::class.java)
+                    timeFrame?.let {
+                        timeFramesByDate[it.date] = it
                     }
                 }
-
-                // Commit the batch
-                batch.commit().await()
-                Log.d("ItemDetailOwnerActivity", "Successfully updated Firestore documents to rename buoi to Buoi and hour to Hour")
-                Toast.makeText(this@ItemDetailOwnerActivity, "Đã cập nhật dữ liệu Firestore", Toast.LENGTH_SHORT).show()
-
-                // Save flag to indicate migration is complete
-                val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-                prefs.edit().putBoolean("firestore_migration_completed", true).apply()
+                Log.d("ItemDetailOwnerActivity", "Loaded ${timeFramesByDate.size} time frames for coSoID: $coSoID")
+                updateTimeSlotsForDate()
             } catch (e: Exception) {
-                Log.e("ItemDetailOwnerActivity", "Error updating Firestore documents: ${e.message}", e)
-                Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi cập nhật dữ liệu Firestore: ${e.message}", Toast.LENGTH_LONG).show()
+                Log.e("ItemDetailOwnerActivity", "Error loading time frames: ${e.message}", e)
+                Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi tải khung giờ: ${e.message}", Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    private fun generateDefaultTimeSlots(courtSize: String, courtID: String): List<TimeSlot> {
+        val defaultPeriods = listOf(
+            "08:00-09:00", "09:00-10:00", "10:00-11:00", "11:00-12:00",
+            "12:00-13:00", "13:00-14:00", "14:00-15:00", "15:00-16:00",
+            "16:00-17:00", "17:00-18:00", "18:00-19:00", "19:00-20:00",
+            "20:00-21:00", "21:00-22:00"
+        )
+        return defaultPeriods.map { period ->
+            TimeSlot(
+                price = 0.0,
+                courtSize = courtSize,
+                period = period,
+                session = when {
+                    period.startsWith("08") || period.startsWith("09") || period.startsWith("10") || period.startsWith("11") -> "Sáng"
+                    period.startsWith("12") || period.startsWith("13") || period.startsWith("14") || period.startsWith("15") || period.startsWith("16") -> "Chiều"
+                    else -> "Tối"
+                },
+                isTimeRange = true,
+                courtID = courtID,
+                coSoID = coSoID
+            )
+        }.sortedBy { it.period }
+    }
+
+    private fun updateTimeSlotsForDate() {
+        lifecycleScope.launch {
+            val selectedTimeFrame = selectedDate?.let { timeFramesByDate[it] }
+            val courtID = selectedTimeFrame?.courtID ?: run {
+                // Fetch a default courtID if no TimeFrame exists
+                try {
+                    val courtSnapshot = db.collection("courts")
+                        .whereEqualTo("coSoID", coSoID)
+                        .limit(1)
+                        .get()
+                        .await()
+                    courtSnapshot.documents.firstOrNull()?.toObject(Court::class.java)?.courtID ?: ""
+                } catch (e: Exception) {
+                    Log.e("ItemDetailOwnerActivity", "Error fetching default courtID: ${e.message}", e)
+                    ""
+                }
+            }
+            val courtSize = courtID.takeIf { it.isNotEmpty() }?.let { getCourtSize(it) } ?: "Unknown"
+
+            val timeSlots = if (selectedTimeFrame != null) {
+                selectedTimeFrame.period.map { period ->
+                    TimeSlot(
+                        price = 0.0,
+                        courtSize = courtSize,
+                        period = period,
+                        session = when {
+                            period.startsWith("08") || period.startsWith("09") || period.startsWith("10") || period.startsWith("11") -> "Sáng"
+                            period.startsWith("12") || period.startsWith("13") || period.startsWith("14") || period.startsWith("15") || period.startsWith("16") -> "Chiều"
+                            else -> "Tối"
+                        },
+                        isTimeRange = true,
+                        courtID = selectedTimeFrame.courtID,
+                        coSoID = coSoID
+                    )
+                }.sortedBy { it.period }
+            } else {
+                generateDefaultTimeSlots(courtSize, courtID)
+            }
+
+            khungGioAdapter.updateData(timeSlots)
+            binding.rcvKhungGioOwner.visibility = View.VISIBLE // Always show rcv_khungGio_owner
         }
     }
 
@@ -181,24 +262,22 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
             onUpdateClick = { position, updatedTimeSlot ->
                 lifecycleScope.launch {
                     try {
-                        // Kiểm tra tính hợp lệ của timeSlot
                         if (updatedTimeSlot.pricingID.isNullOrEmpty() ||
                             updatedTimeSlot.coSoID.isNullOrEmpty() ||
                             updatedTimeSlot.ownerID.isNullOrEmpty()) {
-                            Log.e("ItemDetailOwnerActivity", "Invalid time slot data for update: pricingID=${updatedTimeSlot.pricingID}, coSoID=${updatedTimeSlot.coSoID}, ownerID=${updatedTimeSlot.ownerID}")
-                            Toast.makeText(this@ItemDetailOwnerActivity, "Dữ liệu khung giờ không hợp lệ: Thiếu pricingID, coSoID hoặc ownerID", Toast.LENGTH_LONG).show()
+                            Log.e("ItemDetailOwnerActivity", "Invalid time slot data for update")
+                            Toast.makeText(this@ItemDetailOwnerActivity, "Dữ liệu khung giờ không hợp lệ", Toast.LENGTH_LONG).show()
                             return@launch
                         }
                         if (updatedTimeSlot.session.isEmpty() ||
                             updatedTimeSlot.courtSize.isEmpty() ||
                             updatedTimeSlot.period.isEmpty() ||
                             updatedTimeSlot.price <= 0) {
-                            Log.e("ItemDetailOwnerActivity", "Invalid time slot fields: session=${updatedTimeSlot.session}, courtSize=${updatedTimeSlot.courtSize}, period=${updatedTimeSlot.period}, price=${updatedTimeSlot.price}")
+                            Log.e("ItemDetailOwnerActivity", "Invalid time slot fields")
                             Toast.makeText(this@ItemDetailOwnerActivity, "Vui lòng điền đầy đủ thông tin khung giờ", Toast.LENGTH_LONG).show()
                             return@launch
                         }
 
-                        // Kiểm tra trạng thái xác thực
                         val currentUser = auth.currentUser
                         if (currentUser == null) {
                             Log.e("ItemDetailOwnerActivity", "No authenticated user")
@@ -206,9 +285,7 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                             return@launch
                         }
                         val currentUid = currentUser.uid
-                        Log.d("ItemDetailOwnerActivity", "Current user UID for update: $currentUid")
 
-                        // Kiểm tra quyền sở hữu thông qua sport_facilities
                         val facilityDoc = db.collection("sport_facilities").document(updatedTimeSlot.coSoID).get().await()
                         if (!facilityDoc.exists()) {
                             Log.w("ItemDetailOwnerActivity", "Sport facility does not exist: coSoID=${updatedTimeSlot.coSoID}")
@@ -217,30 +294,25 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                         }
                         val facilityOwnerID = facilityDoc.getString("ownerID")
                         if (facilityOwnerID != currentUid) {
-                            Log.e("ItemDetailOwnerActivity", "Owner mismatch for facility: facility ownerID=$facilityOwnerID, user UID=$currentUid, documentData=${facilityDoc.data}")
-                            Toast.makeText(this@ItemDetailOwnerActivity, "Không có quyền cập nhật: Bạn không sở hữu sân này", Toast.LENGTH_LONG).show()
+                            Log.e("ItemDetailOwnerActivity", "Owner mismatch")
+                            Toast.makeText(this@ItemDetailOwnerActivity, "Không có quyền cập nhật", Toast.LENGTH_LONG).show()
                             return@launch
                         }
 
-                        // Tạo batch để cập nhật timeSlot hiện tại và các timeSlot tương ứng trong các sân khác
                         val batch = db.batch()
-
-                        // Cập nhật timeSlot hiện tại
                         batch.set(
                             db.collection("timeSlots").document(updatedTimeSlot.pricingID),
                             updatedTimeSlot
                         )
 
-                        // Tìm tất cả sân của ownerID
                         val facilitiesSnapshot = db.collection("sport_facilities")
                             .whereEqualTo("ownerID", currentUid)
                             .get()
                             .await()
 
-                        // Tìm và cập nhật timeSlot tương ứng trong các sân khác
                         for (facility in facilitiesSnapshot.documents) {
                             val otherCoSoID = facility.id
-                            if (otherCoSoID != updatedTimeSlot.coSoID) { // Bỏ qua sân hiện tại
+                            if (otherCoSoID != updatedTimeSlot.coSoID) {
                                 val timeSlotsSnapshot = db.collection("timeSlots")
                                     .whereEqualTo("coSoID", otherCoSoID)
                                     .whereEqualTo("ownerID", currentUid)
@@ -263,37 +335,24 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                                             db.collection("timeSlots").document(timeSlotDoc.id),
                                             newTimeSlot
                                         )
-                                        Log.d("ItemDetailOwnerActivity", "Updating matching time slot in coSoID: $otherCoSoID, pricingID: ${timeSlotDoc.id}")
                                     }
                                 }
                             }
                         }
 
-                        // Commit batch với thời gian chờ 10 giây
                         withTimeoutOrNull(10000) {
                             batch.commit().await()
                         } ?: throw Exception("Timeout when updating time slots")
 
-                        // Cập nhật danh sách cục bộ
                         timeSlots[position] = updatedTimeSlot
                         runOnUiThread {
                             priceBoardAdapter.notifyItemChanged(position)
                             updateRecyclerViewVisibility()
-                            Toast.makeText(this@ItemDetailOwnerActivity, "Cập nhật khung giờ thành công trên tất cả sân", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@ItemDetailOwnerActivity, "Cập nhật khung giờ thành công", Toast.LENGTH_SHORT).show()
                         }
-                        Log.d("ItemDetailOwnerActivity", "Updated time slot: ${updatedTimeSlot.pricingID} for coSoID: ${updatedTimeSlot.coSoID} and other facilities")
                     } catch (e: Exception) {
-                        Log.e("ItemDetailOwnerActivity", "Error updating time slot: ${e.message}, timeSlot=$updatedTimeSlot", e)
-                        val errorMessage = when {
-                            e.message?.contains("PERMISSION_DENIED") == true -> "Không có quyền cập nhật khung giờ: Kiểm tra quyền sở hữu."
-                            e.message?.contains("UNAVAILABLE") == true -> "Firestore không khả dụng. Vui lòng kiểm tra kết nối mạng."
-                            e.message?.contains("NOT_FOUND") == true -> "Khung giờ hoặc sân không tồn tại trên Firestore."
-                            e.message?.contains("Timeout") == true -> "Lỗi timeout khi cập nhật khung giờ. Vui lòng kiểm tra kết nối mạng và thử lại."
-                            else -> "Lỗi khi cập nhật khung giờ: ${e.message}"
-                        }
-                        runOnUiThread {
-                            Toast.makeText(this@ItemDetailOwnerActivity, errorMessage, Toast.LENGTH_LONG).show()
-                        }
+                        Log.e("ItemDetailOwnerActivity", "Error updating time slot: ${e.message}", e)
+                        Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi cập nhật khung giờ: ${e.message}", Toast.LENGTH_LONG).show()
                     }
                 }
             },
@@ -305,15 +364,12 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                 }
 
                 val timeSlot = timeSlots[position]
-                Log.d("ItemDetailOwnerActivity", "Attempting to delete time slot: pricingID=${timeSlot.pricingID}, coSoID=${timeSlot.coSoID}, ownerID=${timeSlot.ownerID}")
-
                 AlertDialog.Builder(this)
                     .setTitle("Xác nhận xóa")
-                    .setMessage("Bạn chắc chắn muốn xóa khung giờ này? Khung giờ tương ứng trên các sân khác cũng sẽ bị xóa.")
+                    .setMessage("Bạn chắc chắn muốn xóa khung giờ này?")
                     .setPositiveButton("Có") { _, _ ->
                         lifecycleScope.launch(Dispatchers.IO) {
                             try {
-                                // Kiểm tra trạng thái xác thực
                                 val currentUser = auth.currentUser
                                 if (currentUser == null) {
                                     Log.e("ItemDetailOwnerActivity", "No authenticated user")
@@ -323,42 +379,19 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                                     return@launch
                                 }
                                 val currentUid = currentUser.uid
-                                Log.d("ItemDetailOwnerActivity", "Current user UID: $currentUid")
 
-                                // Kiểm tra kết nối mạng
-                                val isNetworkAvailable = isNetworkAvailable()
-                                if (!isNetworkAvailable) {
-                                    Log.e("ItemDetailOwnerActivity", "No network connection")
-                                    withContext(Dispatchers.Main) {
-                                        Toast.makeText(this@ItemDetailOwnerActivity, "Không có kết nối mạng. Vui lòng kiểm tra kết nối và thử lại.", Toast.LENGTH_LONG).show()
-                                    }
-                                    return@launch
-                                }
-
-                                // Kiểm tra tính hợp lệ của timeSlot
-                                if (timeSlot.pricingID.isNullOrEmpty() ||
-                                    timeSlot.coSoID.isNullOrEmpty() ||
-                                    timeSlot.ownerID.isNullOrEmpty()) {
-                                    Log.e("ItemDetailOwnerActivity", "Invalid time slot data: pricingID=${timeSlot.pricingID}, coSoID=${timeSlot.coSoID}, ownerID=${timeSlot.ownerID}")
-                                    withContext(Dispatchers.Main) {
-                                        Toast.makeText(this@ItemDetailOwnerActivity, "Dữ liệu khung giờ không hợp lệ: Thiếu pricingID, coSoID hoặc ownerID", Toast.LENGTH_LONG).show()
-                                    }
-                                    return@launch
-                                }
-
-                                // Kiểm tra quyền sở hữu thông qua sport_facilities
                                 val facilityDoc = withTimeoutOrNull(10000) {
                                     db.collection("sport_facilities").document(timeSlot.coSoID).get().await()
                                 }
                                 if (facilityDoc == null) {
-                                    Log.w("ItemDetailOwnerActivity", "Failed to fetch facility due to timeout: coSoID=${timeSlot.coSoID}")
+                                    Log.w("ItemDetailOwnerActivity", "Failed to fetch facility due to timeout")
                                     withContext(Dispatchers.Main) {
-                                        Toast.makeText(this@ItemDetailOwnerActivity, "Không thể tải dữ liệu sân do timeout. Vui lòng thử lại.", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(this@ItemDetailOwnerActivity, "Không thể tải dữ liệu sân do timeout.", Toast.LENGTH_LONG).show()
                                     }
                                     return@launch
                                 }
                                 if (!facilityDoc.exists()) {
-                                    Log.w("ItemDetailOwnerActivity", "Sport facility does not exist: coSoID=${timeSlot.coSoID}")
+                                    Log.w("ItemDetailOwnerActivity", "Sport facility does not exist")
                                     withContext(Dispatchers.Main) {
                                         Toast.makeText(this@ItemDetailOwnerActivity, "Sân không tồn tại trên Firestore", Toast.LENGTH_LONG).show()
                                     }
@@ -366,94 +399,75 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                                 }
                                 val facilityOwnerID = facilityDoc.getString("ownerID")
                                 if (facilityOwnerID != currentUid) {
-                                    Log.e("ItemDetailOwnerActivity", "Owner mismatch for facility: facility ownerID=$facilityOwnerID, user UID=$currentUid, documentData=${facilityDoc.data}")
+                                    Log.e("ItemDetailOwnerActivity", "Owner mismatch")
                                     withContext(Dispatchers.Main) {
-                                        Toast.makeText(this@ItemDetailOwnerActivity, "Không có quyền xóa: Bạn không sở hữu sân này", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(this@ItemDetailOwnerActivity, "Không có quyền xóa", Toast.LENGTH_LONG).show()
                                     }
                                     return@launch
                                 }
 
-                                // Thử xóa timeSlot với cơ chế retry
-                                var lastError: Exception? = null
-                                repeat(3) { attempt ->
-                                    try {
-                                        // Tạo batch để xóa timeSlot hiện tại và các timeSlot tương ứng
-                                        val batch = db.batch()
+                                val batch = db.batch()
+                                batch.delete(db.collection("timeSlots").document(timeSlot.pricingID))
 
-                                        // Xóa timeSlot hiện tại
-                                        batch.delete(db.collection("timeSlots").document(timeSlot.pricingID))
+                                val facilitiesSnapshot = db.collection("sport_facilities")
+                                    .whereEqualTo("ownerID", currentUid)
+                                    .get()
+                                    .await()
 
-                                        // Tìm tất cả sân của ownerID
-                                        val facilitiesSnapshot = db.collection("sport_facilities")
+                                for (facility in facilitiesSnapshot.documents) {
+                                    val otherCoSoID = facility.id
+                                    if (otherCoSoID != timeSlot.coSoID) {
+                                        val timeSlotsSnapshot = db.collection("timeSlots")
+                                            .whereEqualTo("coSoID", otherCoSoID)
                                             .whereEqualTo("ownerID", currentUid)
+                                            .whereEqualTo("session", timeSlot.session)
+                                            .whereEqualTo("courtSize", timeSlot.courtSize)
+                                            .whereEqualTo("period", timeSlot.period)
+                                            .whereEqualTo("price", timeSlot.price)
                                             .get()
                                             .await()
 
-                                        // Tìm và xóa timeSlot tương ứng trong các sân khác
-                                        for (facility in facilitiesSnapshot.documents) {
-                                            val otherCoSoID = facility.id
-                                            if (otherCoSoID != timeSlot.coSoID) { // Bỏ qua sân hiện tại
-                                                val timeSlotsSnapshot = db.collection("timeSlots")
-                                                    .whereEqualTo("coSoID", otherCoSoID)
-                                                    .whereEqualTo("ownerID", currentUid)
-                                                    .whereEqualTo("session", timeSlot.session)
-                                                    .whereEqualTo("courtSize", timeSlot.courtSize)
-                                                    .whereEqualTo("period", timeSlot.period)
-                                                    .whereEqualTo("price", timeSlot.price)
-                                                    .get()
-                                                    .await()
-
-                                                for (timeSlotDoc in timeSlotsSnapshot.documents) {
-                                                    batch.delete(timeSlotDoc.reference)
-                                                    Log.d("ItemDetailOwnerActivity", "Deleting matching time slot in coSoID: $otherCoSoID, pricingID: ${timeSlotDoc.id}")
-                                                }
-                                            }
+                                        for (timeSlotDoc in timeSlotsSnapshot.documents) {
+                                            batch.delete(timeSlotDoc.reference)
                                         }
-
-                                        // Commit batch với thời gian chờ 10 giây
-                                        withTimeoutOrNull(10000) {
-                                            batch.commit().await()
-                                        } ?: throw Exception("Timeout when deleting time slot on attempt ${attempt + 1}")
-
-                                        // Cập nhật danh sách cục bộ
-                                        withContext(Dispatchers.Main) {
-                                            timeSlots.removeAt(position)
-                                            priceBoardAdapter.notifyItemRemoved(position)
-                                            updateRecyclerViewVisibility()
-                                            Toast.makeText(this@ItemDetailOwnerActivity, "Xóa khung giờ thành công trên tất cả sân", Toast.LENGTH_SHORT).show()
-                                        }
-                                        Log.d("ItemDetailOwnerActivity", "Deleted time slot: ${timeSlot.pricingID} for coSoID: ${timeSlot.coSoID} and other facilities")
-                                        return@launch // Thành công, thoát
-                                    } catch (e: Exception) {
-                                        Log.w("ItemDetailOwnerActivity", "Delete attempt ${attempt + 1} failed: ${e.message}")
-                                        lastError = e
-                                        if (attempt < 2) delay(2000) // Chờ 2 giây trước khi thử lại
                                     }
                                 }
-                                // Nếu tất cả các lần thử thất bại
-                                throw lastError ?: Exception("Unknown error after retries")
-                            } catch (e: Exception) {
-                                Log.e("ItemDetailOwnerActivity", "Error deleting time slot: ${e.message}, timeSlot=$timeSlot", e)
-                                val errorMessage = when {
-                                    e.message?.contains("PERMISSION_DENIED") == true -> "Không có quyền xóa khung giờ: Kiểm tra quyền sở hữu."
-                                    e.message?.contains("UNAVAILABLE") == true -> "Firestore không khả dụng. Vui lòng kiểm tra kết nối mạng và thử lại."
-                                    e.message?.contains("NOT_FOUND") == true -> "Khung giờ hoặc sân không tồn tại trên Firestore."
-                                    e.message?.contains("Timeout") == true -> "Lỗi timeout khi xóa khung giờ. Vui lòng kiểm tra kết nối mạng và thử lại."
-                                    else -> "Lỗi khi xóa khung giờ: ${e.message}"
-                                }
+
+                                withTimeoutOrNull(10000) {
+                                    batch.commit().await()
+                                } ?: throw Exception("Timeout when deleting time slot")
+
                                 withContext(Dispatchers.Main) {
-                                    Toast.makeText(this@ItemDetailOwnerActivity, errorMessage, Toast.LENGTH_LONG).show()
+                                    timeSlots.removeAt(position)
+                                    priceBoardAdapter.notifyItemRemoved(position)
+                                    updateRecyclerViewVisibility()
+                                    Toast.makeText(this@ItemDetailOwnerActivity, "Xóa khung giờ thành công", Toast.LENGTH_SHORT).show()
+                                }
+                            } catch (e: Exception) {
+                                Log.e("ItemDetailOwnerActivity", "Error deleting time slot: ${e.message}", e)
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi xóa khung giờ: ${e.message}", Toast.LENGTH_LONG).show()
                                 }
                             }
                         }
                     }
                     .setNegativeButton("Không", null)
                     .show()
-            }
+            },
+            hideButtons = true
         )
         binding.priceDetailListOwner.apply {
             adapter = priceBoardAdapter
-            layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this@ItemDetailOwnerActivity)
+            layoutManager = LinearLayoutManager(this@ItemDetailOwnerActivity)
+        }
+
+        // Thiết lập rcv_khungGio_owner
+        khungGioAdapter = KhungGioAdapter(emptyList()) { position ->
+            Toast.makeText(this, "Chọn khung giờ: ${khungGioAdapter.timeSlots[position].period}", Toast.LENGTH_SHORT).show()
+        }
+        binding.rcvKhungGioOwner.apply {
+            adapter = khungGioAdapter
+            layoutManager = GridLayoutManager(this@ItemDetailOwnerActivity, 3)
         }
     }
 
@@ -467,7 +481,7 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
 
         binding.btnUpdateSan.setOnClickListener {
             isEditing = true
-            isUpdateSanPressed = true // Cho phép cập nhật/xóa timeSlot sau khi nhấn btn_update_san
+            isUpdateSanPressed = true
             binding.inputLayoutTitle.visibility = View.VISIBLE
             binding.inputLayoutDiaChi.visibility = View.VISIBLE
             binding.inputLayoutSdt.visibility = View.VISIBLE
@@ -487,96 +501,55 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
 
         binding.btnSaveSan.setOnClickListener {
             saveUpdatedFacility()
-            isUpdateSanPressed = false // Đặt lại trạng thái sau khi lưu
+            isUpdateSanPressed = false
         }
 
         binding.btnDeleteSan.setOnClickListener {
             confirmDeleteFacility()
         }
 
-        // Xử lý nhấn btn_camera
         binding.btnCamera.setOnClickListener {
             checkAndRequestPermissions()
         }
     }
 
-    // Kiểm tra và yêu cầu quyền camera/thư viện
-    private fun checkAndRequestPermissions() {
-        val permissionsNeeded = mutableListOf<String>()
+    private fun migrateFirestoreFields() {
+        lifecycleScope.launch {
+            try {
+                val snapshot = db.collection("sport_facilities").get().await()
+                val batch = db.batch()
 
-        // Kiểm tra quyền CAMERA
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            permissionsNeeded.add(Manifest.permission.CAMERA)
-        }
+                snapshot.documents.forEach { doc ->
+                    val data = doc.data ?: return@forEach
+                    val updatedData = data.toMutableMap()
 
-        // Kiểm tra quyền truy cập ảnh/thư viện
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            // Android 13+: READ_MEDIA_IMAGES
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
-                permissionsNeeded.add(Manifest.permission.READ_MEDIA_IMAGES)
-            }
-        } else {
-            // Android 12 trở xuống: READ_EXTERNAL_STORAGE
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                permissionsNeeded.add(Manifest.permission.READ_EXTERNAL_STORAGE)
-            }
-        }
-
-        if (permissionsNeeded.isNotEmpty()) {
-            requestPermissionLauncher.launch(permissionsNeeded.toTypedArray())
-        } else {
-            showImageSourceDialog()
-        }
-    }
-
-    // Hiển thị dialog giải thích lý do cần quyền
-    private fun showPermissionRationaleDialog() {
-        AlertDialog.Builder(this)
-            .setTitle("Yêu cầu quyền truy cập")
-            .setMessage("Ứng dụng cần quyền truy cập camera và thư viện ảnh để chụp hoặc chọn ảnh cho sân. Vui lòng cấp quyền để tiếp tục.")
-            .setPositiveButton("Thử lại") { _, _ ->
-                checkAndRequestPermissions()
-            }
-            .setNegativeButton("Hủy") { _, _ ->
-                Toast.makeText(this, "Không thể sử dụng camera hoặc thư viện ảnh do thiếu quyền.", Toast.LENGTH_LONG).show()
-            }
-            .show()
-    }
-
-    // Hiển thị dialog chọn nguồn ảnh (thư viện hoặc camera)
-    private fun showImageSourceDialog() {
-        AlertDialog.Builder(this)
-            .setTitle("Chọn nguồn ảnh")
-            .setItems(arrayOf("Chụp ảnh", "Chọn từ thư viện")) { _, which ->
-                when (which) {
-                    0 -> {
-                        // Kiểm tra quyền CAMERA trước khi mở
-                        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                            takePictureLauncher.launch(null)
-                        } else {
-                            Toast.makeText(this, "Quyền camera bị từ chối. Vui lòng cấp quyền trong cài đặt.", Toast.LENGTH_LONG).show()
-                        }
+                    if (data.containsKey("buoi")) {
+                        updatedData["Buoi"] = data["buoi"]
+                        updatedData.remove("buoi")
                     }
-                    1 -> {
-                        // Kiểm tra quyền truy cập ảnh trước khi mở thư viện
-                        val storageGranted = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED
-                        } else {
-                            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
-                        }
-                        if (storageGranted) {
-                            pickImageLauncher.launch("image/*")
-                        } else {
-                            Toast.makeText(this, "Quyền truy cập thư viện ảnh bị từ chối. Vui lòng cấp quyền trong cài đặt.", Toast.LENGTH_LONG).show()
-                        }
+                    if (data.containsKey("hour")) {
+                        updatedData["Hour"] = data["hour"]
+                        updatedData.remove("hour")
+                    }
+
+                    if (updatedData != data) {
+                        batch.set(doc.reference, updatedData)
                     }
                 }
+
+                batch.commit().await()
+                Log.d("ItemDetailOwnerActivity", "Successfully updated Firestore documents")
+                Toast.makeText(this@ItemDetailOwnerActivity, "Đã cập nhật dữ liệu Firestore", Toast.LENGTH_SHORT).show()
+
+                val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                prefs.edit().putBoolean("firestore_migration_completed", true).apply()
+            } catch (e: Exception) {
+                Log.e("ItemDetailOwnerActivity", "Error updating Firestore documents: ${e.message}", e)
+                Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi cập nhật dữ liệu Firestore", Toast.LENGTH_LONG).show()
             }
-            .setNegativeButton("Hủy", null)
-            .show()
+        }
     }
 
-    // Xử lý ảnh từ thư viện
     private fun handleImageUri(uri: Uri) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -593,20 +566,16 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
         }
     }
 
-    // Xử lý ảnh (Bitmap) từ camera hoặc thư viện
     private fun handleImageBitmap(bitmap: Bitmap) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // Nén và chuyển ảnh thành Base64
                 val outputStream = ByteArrayOutputStream()
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
                 val imageBytes = outputStream.toByteArray()
                 val base64Image = Base64.encodeToString(imageBytes, Base64.DEFAULT)
 
-                // Lưu ảnh vào Firestore
                 saveImageToFirestore(base64Image)
 
-                // Cập nhật giao diện
                 withContext(Dispatchers.Main) {
                     binding.imgDetailOwner.setImageBitmap(bitmap)
                     Toast.makeText(this@ItemDetailOwnerActivity, "Cập nhật ảnh thành công", Toast.LENGTH_SHORT).show()
@@ -620,11 +589,9 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
         }
     }
 
-    // Lưu ảnh Base64 vào Firestore
     private fun saveImageToFirestore(base64Image: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // Kiểm tra xác thực
                 val currentUser = auth.currentUser
                 if (currentUser == null) {
                     Log.e("ItemDetailOwnerActivity", "No authenticated user")
@@ -635,7 +602,6 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                 }
                 val currentUid = currentUser.uid
 
-                // Kiểm tra quyền sở hữu
                 val facilityDoc = db.collection("sport_facilities").document(coSoID).get().await()
                 if (!facilityDoc.exists()) {
                     Log.w("ItemDetailOwnerActivity", "Sport facility does not exist: coSoID=$coSoID")
@@ -646,33 +612,26 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                 }
                 val facilityOwnerID = facilityDoc.getString("ownerID")
                 if (facilityOwnerID != currentUid) {
-                    Log.e("ItemDetailOwnerActivity", "Owner mismatch: facility ownerID=$facilityOwnerID, user UID=$currentUid")
+                    Log.e("ItemDetailOwnerActivity", "Owner mismatch")
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@ItemDetailOwnerActivity, "Không có quyền cập nhật ảnh: Bạn không sở hữu sân này", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@ItemDetailOwnerActivity, "Không có quyền cập nhật ảnh", Toast.LENGTH_LONG).show()
                     }
                     return@launch
                 }
 
-                // Cập nhật images[0] trong Firestore
                 db.collection("sport_facilities").document(coSoID)
                     .update("images", listOf(base64Image))
                     .await()
 
                 Log.d("ItemDetailOwnerActivity", "Updated image for coSoID: $coSoID")
                 withContext(Dispatchers.Main) {
-                    // Làm mới RecyclerView để đảm bảo hiển thị item_price_board
                     priceBoardAdapter.notifyDataSetChanged()
                     updateRecyclerViewVisibility()
                 }
             } catch (e: Exception) {
                 Log.e("ItemDetailOwnerActivity", "Error saving image to Firestore: ${e.message}", e)
                 withContext(Dispatchers.Main) {
-                    val errorMessage = when {
-                        e.message?.contains("PERMISSION_DENIED") == true -> "Không có quyền cập nhật ảnh"
-                        e.message?.contains("UNAVAILABLE") == true -> "Firestore không khả dụng, kiểm tra kết nối mạng"
-                        else -> "Lỗi khi lưu ảnh: ${e.message}"
-                    }
-                    Toast.makeText(this@ItemDetailOwnerActivity, errorMessage, Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi lưu ảnh: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -684,7 +643,6 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
             val maxRetries = 3
             while (retryCount < maxRetries) {
                 try {
-                    // Kiểm tra xác thực trước khi truy vấn
                     val currentUser = auth.currentUser
                     if (currentUser == null) {
                         Log.e("ItemDetailOwnerActivity", "No authenticated user for Firestore listener")
@@ -694,7 +652,6 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                         return@launch
                     }
 
-                    // Kiểm tra coSoID hợp lệ
                     if (coSoID.isEmpty()) {
                         Log.e("ItemDetailOwnerActivity", "Invalid coSoID: $coSoID")
                         runOnUiThread {
@@ -710,19 +667,9 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                         .addSnapshotListener { snapshot, error ->
                             if (error != null) {
                                 Log.e("ItemDetailOwnerActivity", "Error listening to Firestore: ${error.message}", error)
-                                val errorMessage = when {
-                                    error.message?.contains("PERMISSION_DENIED") == true -> {
-                                        "Không có quyền tải khung giờ. Kiểm tra quyền sở hữu sân."
-                                    }
-                                    error.message?.contains("UNAVAILABLE") == true -> {
-                                        "Không thể kết nối với Firestore. Vui lòng kiểm tra mạng."
-                                    }
-                                    else -> "Lỗi khi tải dữ liệu khung giờ: ${error.message}"
-                                }
                                 runOnUiThread {
-                                    Toast.makeText(this@ItemDetailOwnerActivity, errorMessage, Toast.LENGTH_LONG).show()
+                                    Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi tải dữ liệu khung giờ: ${error.message}", Toast.LENGTH_LONG).show()
                                 }
-                                // Retry sau 2 giây
                                 lifecycleScope.launch {
                                     delay(2000)
                                     reloadTimeSlots()
@@ -735,7 +682,6 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                                 runOnUiThread {
                                     Toast.makeText(this@ItemDetailOwnerActivity, "Không thể tải dữ liệu khung giờ", Toast.LENGTH_SHORT).show()
                                 }
-                                // Retry sau 2 giây
                                 lifecycleScope.launch {
                                     delay(2000)
                                     reloadTimeSlots()
@@ -763,12 +709,12 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                                 updateRecyclerViewVisibility()
                             }
                         }
-                    return@launch // Thoát vòng lặp nếu snapshot listener được thiết lập thành công
+                    return@launch
                 } catch (e: Exception) {
                     Log.e("ItemDetailOwnerActivity", "Error setting up snapshot listener: ${e.message}", e)
                     retryCount++
                     if (retryCount < maxRetries) {
-                        delay(2000) // Chờ 2 giây trước khi thử lại
+                        delay(2000)
                     } else {
                         runOnUiThread {
                             Toast.makeText(this@ItemDetailOwnerActivity, "Không thể tải khung giờ sau $maxRetries lần thử", Toast.LENGTH_LONG).show()
@@ -826,9 +772,7 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 binding.progressBar.visibility = View.VISIBLE
-                val facilityDoc = withContext(Dispatchers.IO) {
-                    db.collection("sport_facilities").document(coSoID).get().await()
-                }
+                val facilityDoc = db.collection("sport_facilities").document(coSoID).get().await()
                 val facility = facilityDoc.toObject(SportFacility::class.java)
                 facility?.let {
                     binding.txtTitleDetailOwner.text = it.name
@@ -944,12 +888,7 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                 Toast.makeText(this@ItemDetailOwnerActivity, "Cập nhật thành công", Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
                 Log.e("ItemDetailOwnerActivity", "Error updating facility: ${e.message}", e)
-                val errorMessage = when {
-                    e.message?.contains("PERMISSION_DENIED") == true -> "Không có quyền cập nhật sân"
-                    e.message?.contains("UNAVAILABLE") == true -> "Firestore không khả dụng, kiểm tra kết nối mạng"
-                    else -> "Lỗi khi cập nhật: ${e.message}"
-                }
-                Toast.makeText(this@ItemDetailOwnerActivity, errorMessage, Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi cập nhật: ${e.message}", Toast.LENGTH_SHORT).show()
             } finally {
                 binding.progressBar.visibility = View.GONE
             }
@@ -972,7 +911,6 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
             try {
                 binding.progressBar.visibility = View.VISIBLE
 
-                // Refresh authentication state
                 val currentUser = auth.currentUser
                 if (currentUser == null) {
                     Log.e("ItemDetailOwnerActivity", "No authenticated user: coSoID=$coSoID")
@@ -980,9 +918,7 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                     return@launch
                 }
                 val currentUid = currentUser.uid
-                Log.d("ItemDetailOwnerActivity", "Attempting deletion with UID: $currentUid, coSoID: $coSoID")
 
-                // Kiểm tra quyền sở hữu thông qua sport_facilities
                 val facilityDoc = db.collection("sport_facilities").document(coSoID).get().await()
                 if (!facilityDoc.exists()) {
                     Log.w("ItemDetailOwnerActivity", "Facility does not exist: coSoID=$coSoID")
@@ -991,15 +927,13 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                 }
                 val facilityOwnerID = facilityDoc.getString("ownerID")
                 if (facilityOwnerID != currentUid) {
-                    Log.e("ItemDetailOwnerActivity", "Owner mismatch: facility ownerID=$facilityOwnerID, user UID=$currentUid, documentData=${facilityDoc.data}")
-                    Toast.makeText(this@ItemDetailOwnerActivity, "Không có quyền xóa: Bạn không sở hữu sân này", Toast.LENGTH_LONG).show()
+                    Log.e("ItemDetailOwnerActivity", "Owner mismatch")
+                    Toast.makeText(this@ItemDetailOwnerActivity, "Không có quyền xóa", Toast.LENGTH_LONG).show()
                     return@launch
                 }
 
-                // Tạo batch để xóa nguyên tử
                 val batch: WriteBatch = db.batch()
 
-                // Xóa courts
                 val courtsSnapshot = db.collection("courts")
                     .whereEqualTo("coSoID", coSoID)
                     .get()
@@ -1008,7 +942,6 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                     batch.delete(doc.reference)
                 }
 
-                // Xóa time slots
                 val timeSlotsSnapshot = db.collection("timeSlots")
                     .whereEqualTo("coSoID", coSoID)
                     .get()
@@ -1017,10 +950,8 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                     batch.delete(doc.reference)
                 }
 
-                // Xóa facility
                 batch.delete(db.collection("sport_facilities").document(coSoID))
 
-                // Commit batch
                 batch.commit().await()
 
                 Log.d("ItemDetailOwnerActivity", "Successfully deleted facility: coSoID=$coSoID")
@@ -1028,28 +959,78 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                 setResult(RESULT_OK)
                 finish()
             } catch (e: Exception) {
-                Log.e("ItemDetailOwnerActivity", "Error deleting facility: coSoID=$coSoID", e)
-                val errorMessage = when {
-                    e.message?.contains("PERMISSION_DENIED") == true -> "Không có quyền xóa sân (lỗi xác thực)"
-                    e.message?.contains("UNAVAILABLE") == true -> "Firestore không khả dụng, kiểm tra kết nối mạng"
-                    else -> "Lỗi khi xóa sân: ${e.message}"
-                }
-                Toast.makeText(this@ItemDetailOwnerActivity, errorMessage, Toast.LENGTH_LONG).show()
+                Log.e("ItemDetailOwnerActivity", "Error deleting facility: ${e.message}", e)
+                Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi xóa sân: ${e.message}", Toast.LENGTH_LONG).show()
             } finally {
                 binding.progressBar.visibility = View.GONE
             }
         }
     }
 
-    private fun showDebugDialog(title: String, message: String) {
+    private fun checkAndRequestPermissions() {
+        val permissionsNeeded = mutableListOf<String>()
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            permissionsNeeded.add(Manifest.permission.CAMERA)
+        }
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
+                permissionsNeeded.add(Manifest.permission.READ_MEDIA_IMAGES)
+            }
+        } else {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                permissionsNeeded.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+            }
+        }
+        if (permissionsNeeded.isNotEmpty()) {
+            requestPermissionLauncher.launch(permissionsNeeded.toTypedArray())
+        } else {
+            showImageSourceDialog()
+        }
+    }
+
+    private fun showPermissionRationaleDialog() {
         AlertDialog.Builder(this)
-            .setTitle(title)
-            .setMessage(message)
-            .setPositiveButton("OK", null)
+            .setTitle("Yêu cầu quyền truy cập")
+            .setMessage("Ứng dụng cần quyền truy cập camera và thư viện ảnh để chụp hoặc chọn ảnh cho sân. Vui lòng cấp quyền để tiếp tục.")
+            .setPositiveButton("Thử lại") { _, _ ->
+                checkAndRequestPermissions()
+            }
+            .setNegativeButton("Hủy") { _, _ ->
+                Toast.makeText(this, "Không thể sử dụng camera hoặc thư viện ảnh do thiếu quyền.", Toast.LENGTH_LONG).show()
+            }
             .show()
     }
 
-    // Hàm kiểm tra kết nối mạng mới
+    private fun showImageSourceDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Chọn nguồn ảnh")
+            .setItems(arrayOf("Chụp ảnh", "Chọn từ thư viện")) { _, which ->
+                when (which) {
+                    0 -> {
+                        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                            takePictureLauncher.launch(null)
+                        } else {
+                            Toast.makeText(this, "Quyền camera bị từ chối.", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                    1 -> {
+                        val storageGranted = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED
+                        } else {
+                            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+                        }
+                        if (storageGranted) {
+                            pickImageLauncher.launch("image/*")
+                        } else {
+                            Toast.makeText(this, "Quyền truy cập thư viện ảnh bị từ chối.", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            }
+            .setNegativeButton("Hủy", null)
+            .show()
+    }
+
     private fun isNetworkAvailable(): Boolean {
         val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val network = connectivityManager.activeNetwork ?: return false

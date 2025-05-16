@@ -82,22 +82,29 @@ class ThietLapNgayGio : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
-        khungGioAdapter = KhungGioAdapter(getAllTimeSlots()) { position ->
-            showSelectDateDialog(calendarDates.firstOrNull() ?: "") { selected ->
-                selectedDate = selected
-                val timeSlot = getAllTimeSlots()[position]
-                showEditOrDeleteDialog(position, timeSlot)
+        khungGioAdapter = KhungGioAdapter(emptyList()) { position ->
+            if (selectedDate.isEmpty()) {
+                Toast.makeText(this, "Vui lòng chọn ngày trước khi chỉnh sửa hoặc xóa", Toast.LENGTH_SHORT).show()
+                binding.scVCalendaThietLap.smoothScrollTo(0, 0)
+            } else {
+                val timeSlot = timeSlotsByDate[selectedDate]?.get(position)
+                timeSlot?.let { showEditOrDeleteDialog(position, it) }
             }
         }
         binding.rvKhungGio.apply {
             adapter = khungGioAdapter
             layoutManager = androidx.recyclerview.widget.GridLayoutManager(this@ThietLapNgayGio, 3)
         }
-        populateDefaultTimeSlots()
+        // Initialize with empty list until a date is selected
+        updateRecyclerView()
     }
 
     private fun setupListeners() {
         binding.btnAddKhungGio.setOnClickListener {
+            if (calendarDates.isEmpty()) {
+                Toast.makeText(this, "Không có ngày nào để chọn", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
             showSelectDateDialog(calendarDates.firstOrNull() ?: "") { date ->
                 selectedDate = date
                 showTimePickerDialog { period ->
@@ -117,7 +124,11 @@ class ThietLapNgayGio : AppCompatActivity() {
             price = 0.0,
             courtSize = courtType,
             period = period,
-            session = "Sáng",
+            session = when {
+                period.startsWith("08") || period.startsWith("09") || period.startsWith("10") || period.startsWith("11") -> "Sáng"
+                period.startsWith("12") || period.startsWith("13") || period.startsWith("14") || period.startsWith("15") || period.startsWith("16") -> "Chiều"
+                else -> "Tối"
+            },
             isTimeRange = true,
             courtID = courtID,
             coSoID = coSoID
@@ -154,6 +165,8 @@ class ThietLapNgayGio : AppCompatActivity() {
     private fun populateDefaultTimeSlots() {
         timeSlotsByDate.clear()
         val format = SimpleDateFormat("HH:mm", Locale.getDefault())
+        val intervalMinutes = if (courtType.equals("Football", ignoreCase = true)) 90 else 30
+
         calendarDates.forEach { date ->
             val slots = mutableListOf<TimeSlot>()
             val calendar = Calendar.getInstance().apply {
@@ -167,7 +180,7 @@ class ThietLapNgayGio : AppCompatActivity() {
 
             while (calendar.before(endTime)) {
                 val start = format.format(calendar.time)
-                calendar.add(Calendar.MINUTE, 90)
+                calendar.add(Calendar.MINUTE, intervalMinutes)
                 if (calendar.after(endTime)) break
                 val end = format.format(calendar.time)
                 slots.add(createTimeSlot("$start-$end"))
@@ -182,7 +195,8 @@ class ThietLapNgayGio : AppCompatActivity() {
         calendarDates.clear()
         val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
 
-        (0..6).forEach { i ->
+        // Display 14 consecutive days
+        (0..13).forEach { i ->
             val date = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, i) }
             val view = LayoutInflater.from(this).inflate(R.layout.item_calendar_day, binding.calendarContainer, false)
 
@@ -198,10 +212,12 @@ class ThietLapNgayGio : AppCompatActivity() {
                 }
                 view.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryLight))
                 selectedDate = dateStr
+                updateRecyclerView()
             }
 
             binding.calendarContainer.addView(view)
         }
+        // Initialize default time slots for all 14 days
         populateDefaultTimeSlots()
     }
 
@@ -243,7 +259,7 @@ class ThietLapNgayGio : AppCompatActivity() {
             .setTitle("Xác nhận xóa")
             .setMessage("Bạn chắc chắn muốn xóa khung giờ ${timeSlot.period} cho ngày $selectedDate?")
             .setPositiveButton("Có") { _, _ ->
-                timeSlotsByDate[selectedDate]?.remove(timeSlot)
+                timeSlotsByDate[selectedDate]?.removeAt(position)
                 updateRecyclerView()
             }
             .setNegativeButton("Không", null)
@@ -283,37 +299,15 @@ class ThietLapNgayGio : AppCompatActivity() {
     private fun editTimeSlot(position: Int, oldTimeSlot: TimeSlot) {
         showTimePickerDialog { period ->
             val slots = timeSlotsByDate[selectedDate] ?: mutableListOf()
-            slots.remove(oldTimeSlot)
+            slots.removeAt(position)
             slots.add(createTimeSlot(period))
             timeSlotsByDate[selectedDate] = slots
             updateRecyclerView()
         }
     }
 
-    private fun getAllTimeSlots(): List<TimeSlot> {
-        // Get unique periods across all dates
-        val uniquePeriods = timeSlotsByDate.values
-            .flatMap { it.map { slot -> slot.period } }
-            .distinct()
-            .sortedBy { period ->
-                val startTime = period.split("-")[0]
-                SimpleDateFormat("HH:mm", Locale.getDefault()).parse(startTime)?.time ?: 0L
-            }
-        // Convert unique periods to TimeSlot objects
-        return uniquePeriods.map { period ->
-            TimeSlot(
-                price = 0.0,
-                courtSize = courtType,
-                period = period,
-                session = "Sáng",
-                isTimeRange = true,
-                courtID = courtID,
-                coSoID = coSoID
-            )
-        }
-    }
-
     private fun updateRecyclerView() {
-        khungGioAdapter.updateData(getAllTimeSlots())
+        val timeSlots = timeSlotsByDate[selectedDate] ?: emptyList()
+        khungGioAdapter.updateData(timeSlots.sortedBy { it.period })
     }
 }

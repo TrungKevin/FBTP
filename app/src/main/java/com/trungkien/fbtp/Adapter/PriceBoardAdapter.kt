@@ -3,6 +3,7 @@ package com.trungkien.fbtp
 import android.app.Dialog
 import android.content.Context
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
@@ -24,10 +25,12 @@ class AddPriceBoardAdapter(
     private val context: Context,
     private val timeSlots: MutableList<TimeSlot>,
     private val onUpdateClick: (Int, TimeSlot) -> Unit,
-    private val onDeleteClick: (Int) -> Unit
+    private val onDeleteClick: (Int) -> Unit,
+    private val hideButtons: Boolean = false // Tham số để kiểm soát hiển thị nút và tiêu đề
 ) : RecyclerView.Adapter<AddPriceBoardAdapter.ViewHolder>() {
 
     private val firestore = FirebaseFirestore.getInstance()
+    private var isLoading = false
 
     inner class ViewHolder(private val binding: ItemPriceBoardBinding) : RecyclerView.ViewHolder(binding.root) {
         fun bind(timeSlot: TimeSlot, position: Int) {
@@ -47,11 +50,23 @@ class AddPriceBoardAdapter(
             val formatter = NumberFormat.getNumberInstance(Locale("vi", "VN"))
             binding.txtPrice.text = "${formatter.format(timeSlot.price.toInt())} VNĐ"
 
+            // Ẩn hoặc hiển thị nút và tiêu đề dựa trên hideButtons
+            binding.btnUpDate.visibility = if (hideButtons) View.GONE else View.VISIBLE
+            binding.btnDelete.visibility = if (hideButtons) View.GONE else View.VISIBLE
+            binding.txtHeaderUpdate.visibility = if (hideButtons) View.GONE else View.VISIBLE
+            binding.txtHeaderDelete.visibility = if (hideButtons) View.GONE else View.VISIBLE
+
+            // Disable buttons during loading
+            binding.btnUpDate.isEnabled = !isLoading
+            binding.btnDelete.isEnabled = !isLoading
+
             binding.btnUpDate.setOnClickListener {
+                if (isLoading) return@setOnClickListener // Prevent clicks during loading
                 showUpdateDialog(position, timeSlot)
             }
 
             binding.btnDelete.setOnClickListener {
+                if (isLoading) return@setOnClickListener // Prevent clicks during loading
                 onDeleteClick(position)
             }
         }
@@ -192,4 +207,10 @@ class AddPriceBoardAdapter(
     }
 
     override fun getItemCount(): Int = timeSlots.size
+
+    // New method to toggle loading state
+    fun setLoading(loading: Boolean) {
+        isLoading = loading
+        notifyDataSetChanged() // Refresh to update button states
+    }
 }
