@@ -2,6 +2,7 @@ package com.trungkien.fbtp.owner.activity
 
 import android.Manifest
 import android.app.AlertDialog
+import android.app.TimePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -14,6 +15,7 @@ import android.os.Bundle
 import android.util.Base64
 import android.util.Log
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -54,11 +56,15 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
     private var coSoID: String = ""
     private var isEditing = false
     private var isUpdateSanPressed = false
+    private var hasShownEmptyToast = false
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
     private val ownerID: String by lazy { auth.currentUser?.uid ?: "" }
     private val timeFramesByDate = mutableMapOf<String, TimeFrame>()
     private var selectedDate: String? = null
+    private var lastSnapshotUpdateTime = 0L
+    private var lastTimePickerUpdateTime = 0L
+    private var loadingOverlay: View? = null
 
     private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let { handleImageUri(it) }
@@ -100,6 +106,7 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
             return
         }
 
+        setupLoadingOverlay()
         val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
         val migrationCompleted = prefs.getBoolean("firestore_migration_completed", false)
         if (!migrationCompleted) {
@@ -134,12 +141,37 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
         loadTimeFrames()
     }
 
+    private fun setupLoadingOverlay() {
+        loadingOverlay = View(this).apply {
+            layoutParams = binding.root.layoutParams
+            setBackgroundColor(ContextCompat.getColor(this@ItemDetailOwnerActivity, android.R.color.black))
+            alpha = 0.5f
+            isClickable = true
+            isFocusable = true
+            visibility = View.GONE
+        }
+        (binding.root as? ViewGroup)?.addView(loadingOverlay)
+    }
+
+    private fun showLoading() {
+        runOnUiThread {
+            binding.progressBar.visibility = View.VISIBLE
+            loadingOverlay?.visibility = View.VISIBLE
+        }
+    }
+
+    private fun hideLoading() {
+        runOnUiThread {
+            binding.progressBar.visibility = View.GONE
+            loadingOverlay?.visibility = View.GONE
+        }
+    }
+
     private fun setupCalendar() {
         binding.rcvCalendaOwner.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
         val calendarDays = mutableListOf<CalendarDay>()
 
-        // Create calendar days for the next 14 days
         for (i in 0 until 14) {
             val date = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, i) }
             val dateStr = dateFormat.format(date.time)
@@ -157,32 +189,44 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
     private suspend fun getCourtSize(courtID: String): String? {
         return try {
             val courtDoc = db.collection("courts").document(courtID).get().await()
-            courtDoc.toObject(Court::class.java)?.size
+            courtDoc.toObject(Court::class.java)?.size ?: "Unknown"
         } catch (e: Exception) {
-            Log.e("ItemDetailOwnerActivity", "Error fetching court size: ${e.message}", e)
-            null
+            Log.e("ItemDetailOwnerActivity", "Error fetching court size for courtID: $courtID, ${e.message}", e)
+            "Unknown"
         }
     }
 
     private fun loadTimeFrames() {
         lifecycleScope.launch {
             try {
+                showLoading()
                 val snapshot = db.collection("time_frames")
                     .whereEqualTo("coSoID", coSoID)
                     .get()
                     .await()
                 timeFramesByDate.clear()
+                var validTimeFrames = 0
                 for (doc in snapshot.documents) {
                     val timeFrame = doc.toObject(TimeFrame::class.java)
-                    timeFrame?.let {
-                        timeFramesByDate[it.date] = it
+                    if (timeFrame != null && timeFrame.date.isNotEmpty() && timeFrame.period.isNotEmpty()) {
+                        timeFramesByDate[timeFrame.date] = timeFrame
+                        validTimeFrames++
+                    } else {
+                        Log.w("ItemDetailOwnerActivity", "Invalid time frame data: ${doc.id}, data: ${doc.data}")
                     }
                 }
-                Log.d("ItemDetailOwnerActivity", "Loaded ${timeFramesByDate.size} time frames for coSoID: $coSoID")
+                Log.d("ItemDetailOwnerActivity", "Loaded $validTimeFrames valid time frames for coSoID: $coSoID")
                 updateTimeSlotsForDate()
             } catch (e: Exception) {
-                Log.e("ItemDetailOwnerActivity", "Error loading time frames: ${e.message}", e)
-                Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi tải khung giờ: ${e.message}", Toast.LENGTH_SHORT).show()
+                Log.e("ItemDetailOwnerActivity", "Error loading time frames for coSoID: $coSoID, ${e.message}", e)
+                runOnUiThread {
+                    Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi tải khung giờ: ${e.message}", Toast.LENGTH_SHORT).show()
+                    binding.rcvKhungGioOwner.visibility = View.GONE
+                    binding.emptyStateView.visibility = View.VISIBLE
+                }
+                updateTimeSlotsForDate()
+            } finally {
+                hideLoading()
             }
         }
     }
@@ -215,7 +259,6 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val selectedTimeFrame = selectedDate?.let { timeFramesByDate[it] }
             val courtID = selectedTimeFrame?.courtID ?: run {
-                // Fetch a default courtID if no TimeFrame exists
                 try {
                     val courtSnapshot = db.collection("courts")
                         .whereEqualTo("coSoID", coSoID)
@@ -224,13 +267,13 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                         .await()
                     courtSnapshot.documents.firstOrNull()?.toObject(Court::class.java)?.courtID ?: ""
                 } catch (e: Exception) {
-                    Log.e("ItemDetailOwnerActivity", "Error fetching default courtID: ${e.message}", e)
+                    Log.e("ItemDetailOwnerActivity", "Error fetching default courtID for coSoID: $coSoID, ${e.message}", e)
                     ""
                 }
             }
             val courtSize = courtID.takeIf { it.isNotEmpty() }?.let { getCourtSize(it) } ?: "Unknown"
 
-            val timeSlots = if (selectedTimeFrame != null) {
+            val timeSlots = if (selectedTimeFrame != null && selectedTimeFrame.period.isNotEmpty()) {
                 selectedTimeFrame.period.map { period ->
                     TimeSlot(
                         price = 0.0,
@@ -242,7 +285,7 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                             else -> "Tối"
                         },
                         isTimeRange = true,
-                        courtID = selectedTimeFrame.courtID,
+                        courtID = courtID,
                         coSoID = coSoID
                     )
                 }.sortedBy { it.period }
@@ -251,7 +294,8 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
             }
 
             khungGioAdapter.updateData(timeSlots)
-            binding.rcvKhungGioOwner.visibility = View.VISIBLE // Always show rcv_khungGio_owner
+            binding.rcvKhungGioOwner.visibility = if (timeSlots.isEmpty()) View.GONE else View.VISIBLE
+            binding.emptyStateView.visibility = if (timeSlots.isEmpty()) View.VISIBLE else View.GONE
         }
     }
 
@@ -265,7 +309,7 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                         if (updatedTimeSlot.pricingID.isNullOrEmpty() ||
                             updatedTimeSlot.coSoID.isNullOrEmpty() ||
                             updatedTimeSlot.ownerID.isNullOrEmpty()) {
-                            Log.e("ItemDetailOwnerActivity", "Invalid time slot data for update")
+                            Log.e("ItemDetailOwnerActivity", "Invalid time slot data for update: $updatedTimeSlot")
                             Toast.makeText(this@ItemDetailOwnerActivity, "Dữ liệu khung giờ không hợp lệ", Toast.LENGTH_LONG).show()
                             return@launch
                         }
@@ -273,11 +317,12 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                             updatedTimeSlot.courtSize.isEmpty() ||
                             updatedTimeSlot.period.isEmpty() ||
                             updatedTimeSlot.price <= 0) {
-                            Log.e("ItemDetailOwnerActivity", "Invalid time slot fields")
+                            Log.e("ItemDetailOwnerActivity", "Invalid time slot fields: $updatedTimeSlot")
                             Toast.makeText(this@ItemDetailOwnerActivity, "Vui lòng điền đầy đủ thông tin khung giờ", Toast.LENGTH_LONG).show()
                             return@launch
                         }
 
+                        showLoading()
                         val currentUser = auth.currentUser
                         if (currentUser == null) {
                             Log.e("ItemDetailOwnerActivity", "No authenticated user")
@@ -294,7 +339,7 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                         }
                         val facilityOwnerID = facilityDoc.getString("ownerID")
                         if (facilityOwnerID != currentUid) {
-                            Log.e("ItemDetailOwnerActivity", "Owner mismatch")
+                            Log.e("ItemDetailOwnerActivity", "Owner mismatch: facilityOwnerID=$facilityOwnerID, currentUid=$currentUid")
                             Toast.makeText(this@ItemDetailOwnerActivity, "Không có quyền cập nhật", Toast.LENGTH_LONG).show()
                             return@launch
                         }
@@ -353,6 +398,8 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                     } catch (e: Exception) {
                         Log.e("ItemDetailOwnerActivity", "Error updating time slot: ${e.message}", e)
                         Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi cập nhật khung giờ: ${e.message}", Toast.LENGTH_LONG).show()
+                    } finally {
+                        hideLoading()
                     }
                 }
             },
@@ -370,6 +417,7 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                     .setPositiveButton("Có") { _, _ ->
                         lifecycleScope.launch(Dispatchers.IO) {
                             try {
+                                showLoading()
                                 val currentUser = auth.currentUser
                                 if (currentUser == null) {
                                     Log.e("ItemDetailOwnerActivity", "No authenticated user")
@@ -384,14 +432,14 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                                     db.collection("sport_facilities").document(timeSlot.coSoID).get().await()
                                 }
                                 if (facilityDoc == null) {
-                                    Log.w("ItemDetailOwnerActivity", "Failed to fetch facility due to timeout")
+                                    Log.w("ItemDetailOwnerActivity", "Failed to fetch facility due to timeout, coSoID: ${timeSlot.coSoID}")
                                     withContext(Dispatchers.Main) {
                                         Toast.makeText(this@ItemDetailOwnerActivity, "Không thể tải dữ liệu sân do timeout.", Toast.LENGTH_LONG).show()
                                     }
                                     return@launch
                                 }
                                 if (!facilityDoc.exists()) {
-                                    Log.w("ItemDetailOwnerActivity", "Sport facility does not exist")
+                                    Log.w("ItemDetailOwnerActivity", "Sport facility does not exist: coSoID=${timeSlot.coSoID}")
                                     withContext(Dispatchers.Main) {
                                         Toast.makeText(this@ItemDetailOwnerActivity, "Sân không tồn tại trên Firestore", Toast.LENGTH_LONG).show()
                                     }
@@ -399,7 +447,7 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                                 }
                                 val facilityOwnerID = facilityDoc.getString("ownerID")
                                 if (facilityOwnerID != currentUid) {
-                                    Log.e("ItemDetailOwnerActivity", "Owner mismatch")
+                                    Log.e("ItemDetailOwnerActivity", "Owner mismatch: facilityOwnerID=$facilityOwnerID, currentUid=$currentUid")
                                     withContext(Dispatchers.Main) {
                                         Toast.makeText(this@ItemDetailOwnerActivity, "Không có quyền xóa", Toast.LENGTH_LONG).show()
                                     }
@@ -448,6 +496,8 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                                 withContext(Dispatchers.Main) {
                                     Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi xóa khung giờ: ${e.message}", Toast.LENGTH_LONG).show()
                                 }
+                            } finally {
+                                hideLoading()
                             }
                         }
                     }
@@ -461,13 +511,239 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
             layoutManager = LinearLayoutManager(this@ItemDetailOwnerActivity)
         }
 
-        // Thiết lập rcv_khungGio_owner
         khungGioAdapter = KhungGioAdapter(emptyList()) { position ->
-            Toast.makeText(this, "Chọn khung giờ: ${khungGioAdapter.timeSlots[position].period}", Toast.LENGTH_SHORT).show()
+            if (!isEditing) {
+                Toast.makeText(this, "Chọn khung giờ: ${khungGioAdapter.timeSlots[position].period}", Toast.LENGTH_SHORT).show()
+            } else {
+                if (selectedDate.isNullOrEmpty()) {
+                    Toast.makeText(this, "Vui lòng chọn ngày trước khi chỉnh sửa hoặc xóa", Toast.LENGTH_SHORT).show()
+                    return@KhungGioAdapter
+                }
+                val timeSlot = khungGioAdapter.timeSlots.getOrNull(position)
+                if (timeSlot == null) {
+                    Log.e("ItemDetailOwnerActivity", "Invalid time slot at position: $position")
+                    Toast.makeText(this, "Lỗi: Khung giờ không hợp lệ", Toast.LENGTH_SHORT).show()
+                    return@KhungGioAdapter
+                }
+                showEditOrDeleteDialog(position, timeSlot)
+            }
         }
         binding.rcvKhungGioOwner.apply {
             adapter = khungGioAdapter
             layoutManager = GridLayoutManager(this@ItemDetailOwnerActivity, 3)
+        }
+    }
+
+    private fun showEditOrDeleteDialog(position: Int, timeSlot: TimeSlot) {
+        AlertDialog.Builder(this)
+            .setTitle("Tùy chọn khung giờ")
+            .setMessage("Bạn muốn chỉnh sửa hay xóa khung giờ ${timeSlot.period} cho ngày $selectedDate?")
+            .setPositiveButton("Chỉnh sửa") { _, _ -> editTimeSlot(position, timeSlot) }
+            .setNegativeButton("Xóa") { _, _ -> showDeleteConfirmation(position, timeSlot) }
+            .setNeutralButton("Hủy", null)
+            .show()
+    }
+
+    private fun showDeleteConfirmation(position: Int, timeSlot: TimeSlot) {
+        AlertDialog.Builder(this)
+            .setTitle("Xác nhận xóa")
+            .setMessage("Bạn chắc chắn muốn xóa khung giờ ${timeSlot.period} cho ngày $selectedDate?")
+            .setPositiveButton("Có") { _, _ -> deleteTimeSlot(position, timeSlot) }
+            .setNegativeButton("Không", null)
+            .show()
+    }
+
+    private fun editTimeSlot(position: Int, oldTimeSlot: TimeSlot) {
+        showTimePickerDialog { newPeriod ->
+            lifecycleScope.launch {
+                try {
+                    val currentTime = System.currentTimeMillis()
+                    if (currentTime - lastTimePickerUpdateTime < 1000) {
+                        Log.d("ItemDetailOwnerActivity", "Debouncing TimePicker update")
+                        return@launch
+                    }
+                    lastTimePickerUpdateTime = currentTime
+
+                    showLoading()
+                    val newTimeSlot = oldTimeSlot.copy(
+                        period = newPeriod,
+                        session = when {
+                            newPeriod.startsWith("08") || newPeriod.startsWith("09") || newPeriod.startsWith("10") || newPeriod.startsWith("11") -> "Sáng"
+                            newPeriod.startsWith("12") || newPeriod.startsWith("13") || newPeriod.startsWith("14") || newPeriod.startsWith("15") || newPeriod.startsWith("16") -> "Chiều"
+                            else -> "Tối"
+                        }
+                    )
+
+                    val currentSlots = khungGioAdapter.timeSlots.toMutableList()
+                    if (position >= 0 && position < currentSlots.size) {
+                        currentSlots[position] = newTimeSlot
+                        updateTimeFrameInFirestore(currentSlots, oldTimeSlot.courtID)
+                        runOnUiThread {
+                            khungGioAdapter.updateData(currentSlots.sortedBy { it.period })
+                            Toast.makeText(this@ItemDetailOwnerActivity, "Cập nhật khung giờ thành công", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        Log.e("ItemDetailOwnerActivity", "Invalid position for updating time slot: $position")
+                        runOnUiThread {
+                            Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi cập nhật khung giờ", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("ItemDetailOwnerActivity", "Error updating time slot: ${e.message}", e)
+                    runOnUiThread {
+                        Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi cập nhật khung giờ: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                } finally {
+                    hideLoading()
+                }
+            }
+        }
+    }
+
+    private fun deleteTimeSlot(position: Int, timeSlot: TimeSlot) {
+        lifecycleScope.launch {
+            try {
+                showLoading()
+                val currentSlots = khungGioAdapter.timeSlots.toMutableList()
+                if (position >= 0 && position < currentSlots.size) {
+                    currentSlots.removeAt(position)
+                    updateTimeFrameInFirestore(currentSlots, timeSlot.courtID)
+                    runOnUiThread {
+                        khungGioAdapter.updateData(currentSlots.sortedBy { it.period })
+                        binding.rcvKhungGioOwner.visibility = if (currentSlots.isEmpty()) View.GONE else View.VISIBLE
+                        binding.emptyStateView.visibility = if (currentSlots.isEmpty()) View.VISIBLE else View.GONE
+                        Toast.makeText(this@ItemDetailOwnerActivity, "Xóa khung giờ thành công", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    Log.e("ItemDetailOwnerActivity", "Invalid position for deleting time slot: $position")
+                    runOnUiThread {
+                        Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi xóa khung giờ", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("ItemDetailOwnerActivity", "Error deleting time slot: ${e.message}", e)
+                runOnUiThread {
+                    Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi xóa khung giờ: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            } finally {
+                hideLoading()
+            }
+        }
+    }
+
+    private fun showTimePickerDialog(onTimeSelected: (String) -> Unit) {
+        val calendar = Calendar.getInstance()
+        val hour = calendar.get(Calendar.HOUR_OF_DAY)
+        val minute = if (calendar.get(Calendar.MINUTE) < 30) 0 else 30
+
+        TimePickerDialog(this, { _, selectedHour, selectedMinute ->
+            val normalizedStartMinute = if (selectedMinute < 30) 0 else 30
+            val startTime = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, selectedHour)
+                set(Calendar.MINUTE, normalizedStartMinute)
+            }
+
+            TimePickerDialog(this, { _, endHour, endMinute ->
+                val normalizedEndMinute = if (endMinute < 30) 0 else 30
+                val endTime = Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, endHour)
+                    set(Calendar.MINUTE, normalizedEndMinute)
+                }
+
+                if (endTime.after(startTime)) {
+                    val format = SimpleDateFormat("HH:mm", Locale.getDefault())
+                    val period = "${format.format(startTime.time)}-${format.format(endTime.time)}"
+                    onTimeSelected(period)
+                } else {
+                    runOnUiThread {
+                        Toast.makeText(this, "Giờ kết thúc phải sau giờ bắt đầu", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }, selectedHour, normalizedStartMinute, true).show()
+        }, hour, minute, true).show()
+    }
+
+    private fun updateTimeFrameInFirestore(slots: List<TimeSlot>, courtID: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                showLoading()
+                val currentUser = auth.currentUser
+                if (currentUser == null) {
+                    Log.e("ItemDetailOwnerActivity", "No authenticated user for Firestore update")
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@ItemDetailOwnerActivity, "Vui lòng đăng nhập lại", Toast.LENGTH_LONG).show()
+                    }
+                    return@launch
+                }
+                val currentUid = currentUser.uid
+
+                val facilityDoc = withTimeoutOrNull(10000) {
+                    db.collection("sport_facilities").document(coSoID).get().await()
+                }
+                if (facilityDoc == null || !facilityDoc.exists()) {
+                    Log.w("ItemDetailOwnerActivity", "Sport facility does not exist or timeout: coSoID=$coSoID")
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@ItemDetailOwnerActivity, "Sân không tồn tại trên Firestore", Toast.LENGTH_LONG).show()
+                    }
+                    return@launch
+                }
+                val facilityOwnerID = facilityDoc.getString("ownerID")
+                if (facilityOwnerID != currentUid) {
+                    Log.e("ItemDetailOwnerActivity", "Owner mismatch: facilityOwnerID=$facilityOwnerID, currentUid=$currentUid")
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@ItemDetailOwnerActivity, "Không có quyền cập nhật khung giờ", Toast.LENGTH_LONG).show()
+                    }
+                    return@launch
+                }
+
+                if (selectedDate.isNullOrEmpty()) {
+                    Log.e("ItemDetailOwnerActivity", "No selected date for updating time frame")
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@ItemDetailOwnerActivity, "Vui lòng chọn ngày", Toast.LENGTH_SHORT).show()
+                    }
+                    return@launch
+                }
+
+                val timeFrameQuery = db.collection("time_frames")
+                    .whereEqualTo("coSoID", coSoID)
+                    .whereEqualTo("courtID", courtID)
+                    .whereEqualTo("date", selectedDate)
+                    .get()
+                    .await()
+
+                val batch = db.batch()
+                if (timeFrameQuery.documents.isNotEmpty()) {
+                    val timeFrameDoc = timeFrameQuery.documents.first()
+                    val periods = slots.map { it.period }
+                    batch.update(timeFrameDoc.reference, "period", periods)
+                    Log.d("ItemDetailOwnerActivity", "Updating existing time frame: timeFrameID=${timeFrameDoc.id}, periods=$periods")
+                } else {
+                    val newTimeFrame = TimeFrame(
+                        timeFrameID = UUID.randomUUID().toString(),
+                        courtID = courtID,
+                        coSoID = coSoID,
+                        date = selectedDate!!,
+                        period = slots.map { it.period }
+                    )
+                    batch.set(db.collection("time_frames").document(newTimeFrame.timeFrameID), newTimeFrame)
+                    Log.d("ItemDetailOwnerActivity", "Creating new time frame: timeFrameID=${newTimeFrame.timeFrameID}, periods=${newTimeFrame.period}")
+                }
+
+                withTimeoutOrNull(10000) {
+                    batch.commit().await()
+                } ?: throw Exception("Timeout when updating time frame")
+
+                withContext(Dispatchers.Main) {
+                    loadTimeFrames()
+                }
+            } catch (e: Exception) {
+                Log.e("ItemDetailOwnerActivity", "Error updating time frame in Firestore: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi lưu khung giờ: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            } finally {
+                hideLoading()
+            }
         }
     }
 
@@ -516,6 +792,7 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
     private fun migrateFirestoreFields() {
         lifecycleScope.launch {
             try {
+                showLoading()
                 val snapshot = db.collection("sport_facilities").get().await()
                 val batch = db.batch()
 
@@ -546,6 +823,8 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 Log.e("ItemDetailOwnerActivity", "Error updating Firestore documents: ${e.message}", e)
                 Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi cập nhật dữ liệu Firestore", Toast.LENGTH_LONG).show()
+            } finally {
+                hideLoading()
             }
         }
     }
@@ -553,6 +832,7 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
     private fun handleImageUri(uri: Uri) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
+                showLoading()
                 val inputStream = contentResolver.openInputStream(uri)
                 val bitmap = BitmapFactory.decodeStream(inputStream)
                 inputStream?.close()
@@ -562,6 +842,8 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi tải ảnh: ${e.message}", Toast.LENGTH_LONG).show()
                 }
+            } finally {
+                hideLoading()
             }
         }
     }
@@ -569,6 +851,7 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
     private fun handleImageBitmap(bitmap: Bitmap) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
+                showLoading()
                 val outputStream = ByteArrayOutputStream()
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
                 val imageBytes = outputStream.toByteArray()
@@ -585,6 +868,8 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi xử lý ảnh: ${e.message}", Toast.LENGTH_LONG).show()
                 }
+            } finally {
+                hideLoading()
             }
         }
     }
@@ -592,6 +877,7 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
     private fun saveImageToFirestore(base64Image: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
+                showLoading()
                 val currentUser = auth.currentUser
                 if (currentUser == null) {
                     Log.e("ItemDetailOwnerActivity", "No authenticated user")
@@ -612,7 +898,7 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                 }
                 val facilityOwnerID = facilityDoc.getString("ownerID")
                 if (facilityOwnerID != currentUid) {
-                    Log.e("ItemDetailOwnerActivity", "Owner mismatch")
+                    Log.e("ItemDetailOwnerActivity", "Owner mismatch: facilityOwnerID=$facilityOwnerID, currentUid=$currentUid")
                     withContext(Dispatchers.Main) {
                         Toast.makeText(this@ItemDetailOwnerActivity, "Không có quyền cập nhật ảnh", Toast.LENGTH_LONG).show()
                     }
@@ -633,6 +919,8 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi lưu ảnh: ${e.message}", Toast.LENGTH_LONG).show()
                 }
+            } finally {
+                hideLoading()
             }
         }
     }
@@ -663,8 +951,14 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
 
                     db.collection("timeSlots")
                         .whereEqualTo("ownerID", ownerID)
-                        .whereEqualTo("coSoID", coSoID)
                         .addSnapshotListener { snapshot, error ->
+                            val currentTime = System.currentTimeMillis()
+                            if (currentTime - lastSnapshotUpdateTime < 100) {
+                                Log.d("ItemDetailOwnerActivity", "Skipping rapid snapshot update")
+                                return@addSnapshotListener
+                            }
+                            lastSnapshotUpdateTime = currentTime
+
                             if (error != null) {
                                 Log.e("ItemDetailOwnerActivity", "Error listening to Firestore: ${error.message}", error)
                                 runOnUiThread {
@@ -678,7 +972,7 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                             }
 
                             if (snapshot == null) {
-                                Log.w("ItemDetailOwnerActivity", "Snapshot is null for coSoID: $coSoID")
+                                Log.w("ItemDetailOwnerActivity", "Snapshot is null for ownerID: $ownerID")
                                 runOnUiThread {
                                     Toast.makeText(this@ItemDetailOwnerActivity, "Không thể tải dữ liệu khung giờ", Toast.LENGTH_SHORT).show()
                                 }
@@ -690,18 +984,32 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                             }
 
                             timeSlots.clear()
+                            val seenPricingIds = mutableSetOf<String>()
                             if (snapshot.isEmpty) {
-                                Log.d("ItemDetailOwnerActivity", "No time slots found for coSoID: $coSoID")
+                                Log.d("ItemDetailOwnerActivity", "No time slots found for ownerID: $ownerID")
+                                runOnUiThread {
+                                    if (!hasShownEmptyToast) {
+                                        Toast.makeText(this@ItemDetailOwnerActivity, "Sân không có sẵn Bảng giá giờ", Toast.LENGTH_LONG).show()
+                                        hasShownEmptyToast = true
+                                    }
+                                }
                             } else {
+                                hasShownEmptyToast = false
                                 for (doc in snapshot.documents) {
                                     val timeSlot = doc.toObject(TimeSlot::class.java)?.copy(pricingID = doc.id)
                                     if (timeSlot != null && isValidTimeSlot(timeSlot)) {
-                                        timeSlots.add(timeSlot)
+                                        if (timeSlot.pricingID !in seenPricingIds && (timeSlot.coSoID.isEmpty() || timeSlot.coSoID == coSoID)) {
+                                            timeSlots.add(timeSlot)
+                                            seenPricingIds.add(timeSlot.pricingID)
+                                        } else {
+                                            Log.w("ItemDetailOwnerActivity", "Skipped time slot: pricingID=${timeSlot.pricingID}, coSoID=${timeSlot.coSoID}, data=${doc.data}")
+                                        }
                                     } else {
-                                        Log.w("ItemDetailOwnerActivity", "Invalid time slot data: ${doc.id}, data: ${doc.data}")
+                                        Log.w("ItemDetailOwnerActivity", "Invalid time slot data: ${doc.id}, data=${doc.data}")
                                     }
                                 }
-                                Log.d("ItemDetailOwnerActivity", "Loaded ${timeSlots.size} time slots for coSoID: $coSoID")
+                                timeSlots.sortBy { it.period }
+                                Log.d("ItemDetailOwnerActivity", "Loaded ${timeSlots.size} unique time slots for ownerID: $ownerID, coSoID: $coSoID")
                             }
 
                             runOnUiThread {
@@ -728,26 +1036,38 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
     private fun reloadTimeSlots() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
+                showLoading()
                 val snapshot = db.collection("timeSlots")
                     .whereEqualTo("ownerID", ownerID)
-                    .whereEqualTo("coSoID", coSoID)
                     .get()
                     .await()
 
                 withContext(Dispatchers.Main) {
                     timeSlots.clear()
+                    val seenPricingIds = mutableSetOf<String>()
                     if (snapshot.isEmpty) {
-                        Log.d("ItemDetailOwnerActivity", "No time slots found for coSoID: $coSoID on reload")
+                        Log.d("ItemDetailOwnerActivity", "No time slots found for ownerID: $ownerID on reload")
+                        if (!hasShownEmptyToast) {
+                            Toast.makeText(this@ItemDetailOwnerActivity, "Sân không có sẵn Bảng giá giờ", Toast.LENGTH_LONG).show()
+                            hasShownEmptyToast = true
+                        }
                     } else {
+                        hasShownEmptyToast = false
                         for (doc in snapshot.documents) {
                             val timeSlot = doc.toObject(TimeSlot::class.java)?.copy(pricingID = doc.id)
                             if (timeSlot != null && isValidTimeSlot(timeSlot)) {
-                                timeSlots.add(timeSlot)
+                                if (timeSlot.pricingID !in seenPricingIds && (timeSlot.coSoID.isEmpty() || timeSlot.coSoID == coSoID)) {
+                                    timeSlots.add(timeSlot)
+                                    seenPricingIds.add(timeSlot.pricingID)
+                                } else {
+                                    Log.w("ItemDetailOwnerActivity", "Skipped time slot on reload: pricingID=${timeSlot.pricingID}, coSoID=${timeSlot.coSoID}, data=${doc.data}")
+                                }
                             } else {
-                                Log.w("ItemDetailOwnerActivity", "Invalid time slot data on reload: ${doc.id}, data: ${doc.data}")
+                                Log.w("ItemDetailOwnerActivity", "Invalid time slot data on reload: ${doc.id}, data=${doc.data}")
                             }
                         }
-                        Log.d("ItemDetailOwnerActivity", "Reloaded ${timeSlots.size} time slots for coSoID: $coSoID")
+                        timeSlots.sortBy { it.period }
+                        Log.d("ItemDetailOwnerActivity", "Reloaded ${timeSlots.size} unique time slots for ownerID: $ownerID, coSoID: $coSoID")
                     }
                     priceBoardAdapter.notifyDataSetChanged()
                     updateRecyclerViewVisibility()
@@ -757,12 +1077,16 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi tải lại khung giờ: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
+            } finally {
+                hideLoading()
             }
         }
     }
 
     private fun isValidTimeSlot(timeSlot: TimeSlot): Boolean {
-        return timeSlot.session.isNotEmpty() &&
+        return timeSlot.pricingID.isNotEmpty() &&
+                timeSlot.ownerID.isNotEmpty() &&
+                timeSlot.session.isNotEmpty() &&
                 timeSlot.courtSize.isNotEmpty() &&
                 timeSlot.period.isNotEmpty() &&
                 timeSlot.price > 0
@@ -771,7 +1095,7 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
     private fun loadFacilityDetails() {
         lifecycleScope.launch {
             try {
-                binding.progressBar.visibility = View.VISIBLE
+                showLoading()
                 val facilityDoc = db.collection("sport_facilities").document(coSoID).get().await()
                 val facility = facilityDoc.toObject(SportFacility::class.java)
                 facility?.let {
@@ -780,6 +1104,92 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                     binding.txtSdtDetailOwner.text = it.phoneContact
                     binding.txtEmailDetailOwner.text = it.email
                     binding.txtGioItemDetail.text = it.openingHours ?: "Chưa cài đặt giờ hoạt động"
+
+                    // Load court size for txt_vs_detail
+                    var courtSize: String? = null
+                    try {
+                        // Step 1: Get courtID from courts collection
+                        var courtID: String? = null
+                        repeat(2) { attempt ->
+                            withTimeoutOrNull(10000) {
+                                try {
+                                    val courtSnapshot = db.collection("courts")
+                                        .whereEqualTo("coSoID", coSoID)
+                                        .limit(1)
+                                        .get()
+                                        .await()
+                                    val court = courtSnapshot.documents.firstOrNull()?.toObject(Court::class.java)
+                                    courtID = court?.courtID
+                                    courtSize = court?.size?.takeIf { it.isNotEmpty() } // Store for fallback
+                                    Log.d("ItemDetailOwnerActivity", "Attempt $attempt: CourtID: $courtID, Court size: ${court?.size} for coSoID: $coSoID")
+                                    if (courtID != null) return@withTimeoutOrNull
+                                } catch (e: Exception) {
+                                    Log.w("ItemDetailOwnerActivity", "Attempt $attempt: courts query failed: ${e.message}")
+                                }
+                            }
+                            if (courtID != null) return@repeat
+                        }
+
+                        // Step 2: Try time_slots collection with coSoID and courtID
+                        if (courtID != null) {
+                            repeat(2) { attempt ->
+                                withTimeoutOrNull(10000) {
+                                    try {
+                                        val timeSlotSnapshot = db.collection("time_slots")
+                                            .whereEqualTo("coSoID", coSoID)
+                                            .whereEqualTo("courtID", courtID)
+                                            .limit(1)
+                                            .get()
+                                            .await()
+                                        val timeSlot = timeSlotSnapshot.documents.firstOrNull()?.toObject(TimeSlot::class.java)
+                                        courtSize = timeSlot?.courtSize?.takeIf { it.isNotEmpty() }
+                                        Log.d("ItemDetailOwnerActivity", "Attempt $attempt: TimeSlot courtSize: ${timeSlot?.courtSize} for coSoID: $coSoID, courtID: $courtID")
+                                        if (courtSize != null) return@withTimeoutOrNull
+                                    } catch (e: Exception) {
+                                        Log.w("ItemDetailOwnerActivity", "Attempt $attempt: time_slots query failed: ${e.message}")
+                                    }
+                                }
+                                if (courtSize != null) return@repeat
+                            }
+                        }
+
+                        // Step 3: Try time_frames/{timeFrameID}/time_slots subcollection
+                        if (courtSize == null && courtID != null) {
+                            repeat(2) { attempt ->
+                                withTimeoutOrNull(10000) {
+                                    try {
+                                        val timeFrameSnapshot = db.collection("time_frames")
+                                            .whereEqualTo("coSoID", coSoID)
+                                            .limit(1)
+                                            .get()
+                                            .await()
+                                        val timeFrameID = timeFrameSnapshot.documents.firstOrNull()?.id
+                                        Log.d("ItemDetailOwnerActivity", "Attempt $attempt: TimeFrame ID: $timeFrameID for coSoID: $coSoID")
+                                        if (timeFrameID != null) {
+                                            val subSnapshot = db.collection("time_frames")
+                                                .document(timeFrameID)
+                                                .collection("time_slots")
+                                                .whereEqualTo("courtID", courtID)
+                                                .limit(1)
+                                                .get()
+                                                .await()
+                                            val timeSlot = subSnapshot.documents.firstOrNull()?.toObject(TimeSlot::class.java)
+                                            courtSize = timeSlot?.courtSize?.takeIf { it.isNotEmpty() }
+                                            Log.d("ItemDetailOwnerActivity", "Attempt $attempt: Subcollection TimeSlot courtSize: ${timeSlot?.courtSize} for courtID: $courtID")
+                                            if (courtSize != null) return@withTimeoutOrNull
+                                        }
+                                    } catch (e: Exception) {
+                                        Log.w("ItemDetailOwnerActivity", "Attempt $attempt: time_frames/time_slots query failed: ${e.message}")
+                                    }
+                                }
+                                if (courtSize != null) return@repeat
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e("ItemDetailOwnerActivity", "Error fetching court size for coSoID: $coSoID, ${e.message}", e)
+                    }
+
+                    binding.txtVsDetail.text = courtSize ?: "..vs.."
 
                     if (it.images.isNotEmpty() && binding.imgDetailOwner.drawable == null) {
                         if (it.images[0].startsWith("http")) {
@@ -798,11 +1208,11 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                     finish()
                 }
             } catch (e: Exception) {
-                Log.e("ItemDetailOwnerActivity", "Error loading facility details: ${e.message}", e)
+                Log.e("ItemDetailOwnerActivity", "Error loading facility details for coSoID: $coSoID, ${e.message}", e)
                 Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi tải dữ liệu sân: ${e.message}", Toast.LENGTH_SHORT).show()
                 finish()
             } finally {
-                binding.progressBar.visibility = View.GONE
+                hideLoading()
             }
         }
     }
@@ -838,8 +1248,7 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             try {
-                binding.progressBar.visibility = View.VISIBLE
-
+                showLoading()
                 val facilitiesSnapshot = db.collection("sport_facilities")
                     .whereEqualTo("ownerID", ownerID)
                     .get()
@@ -890,7 +1299,7 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                 Log.e("ItemDetailOwnerActivity", "Error updating facility: ${e.message}", e)
                 Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi cập nhật: ${e.message}", Toast.LENGTH_SHORT).show()
             } finally {
-                binding.progressBar.visibility = View.GONE
+                hideLoading()
             }
         }
     }
@@ -909,8 +1318,7 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
     private fun deleteFacility() {
         lifecycleScope.launch {
             try {
-                binding.progressBar.visibility = View.VISIBLE
-
+                showLoading()
                 val currentUser = auth.currentUser
                 if (currentUser == null) {
                     Log.e("ItemDetailOwnerActivity", "No authenticated user: coSoID=$coSoID")
@@ -927,7 +1335,7 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                 }
                 val facilityOwnerID = facilityDoc.getString("ownerID")
                 if (facilityOwnerID != currentUid) {
-                    Log.e("ItemDetailOwnerActivity", "Owner mismatch")
+                    Log.e("ItemDetailOwnerActivity", "Owner mismatch: facilityOwnerID=$facilityOwnerID, currentUid=$currentUid")
                     Toast.makeText(this@ItemDetailOwnerActivity, "Không có quyền xóa", Toast.LENGTH_LONG).show()
                     return@launch
                 }
@@ -962,7 +1370,7 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                 Log.e("ItemDetailOwnerActivity", "Error deleting facility: ${e.message}", e)
                 Toast.makeText(this@ItemDetailOwnerActivity, "Lỗi khi xóa sân: ${e.message}", Toast.LENGTH_LONG).show()
             } finally {
-                binding.progressBar.visibility = View.GONE
+                hideLoading()
             }
         }
     }
