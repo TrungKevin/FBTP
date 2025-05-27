@@ -21,5 +21,9 @@
 
     </style>
 
+    <style name="RoundedImageView">RoundedImageView</style>
+
+    <style name="CircularImageView">CircularImageView</style>
+
 
 </resources>

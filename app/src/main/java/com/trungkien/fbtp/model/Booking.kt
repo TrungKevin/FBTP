@@ -1,19 +1,31 @@
 package com.trungkien.fbtp.model
 
-import java.util.Date
+import com.google.firebase.firestore.PropertyName
 
 data class Booking(
     val bookingID: String = "",
     val userID: String = "",
     val courtID: String = "",
-    val facilityID: String = "", // Thêm để tiện truy vấn
+    @PropertyName("facilityID") val facilityID: String = "", // Thay coSoID trong hệ thống
     val bookingDate: String = "", // Format "dd/MM/yyyy"
-    val startTime: String = "", // Format "HH:mm"
-    val endTime: String = "",
-    val status: String = "pending", // "pending", "confirmed", "cancelled", "completed"
+    val period: String = "", // Format "HH:mm-HH:mm", e.g., "08:00-09:00"
+    @PropertyName("status") val status: String = "pending", // "pending", "confirmed", "cancelled", "completed"
+    @PropertyName("booked") val booked: Boolean = false, // Đồng bộ với timeframes
     val createdAt: Long = System.currentTimeMillis(),
     val totalPrice: Double = 0.0,
     val notes: String = ""
 ) {
-    constructor() : this("", "", "", "", "", "", "", "pending")
+    constructor() : this(
+        bookingID = "",
+        userID = "",
+        courtID = "",
+        facilityID = "",
+        bookingDate = "",
+        period = "",
+        status = "pending",
+        booked = false,
+        createdAt = System.currentTimeMillis(),
+        totalPrice = 0.0,
+        notes = ""
+    )
 }

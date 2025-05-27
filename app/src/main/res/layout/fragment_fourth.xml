@@ -207,16 +207,38 @@
                 app:backgroundTint="@color/colorPrimary"
                 app:cornerRadius="8dp" />
 
-            <!-- Tiêu đề -->
-            <com.google.android.material.textview.MaterialTextView
-                android:layout_width="match_parent"
+            <LinearLayout
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/cap_nhat_gia_gio"
-                android:textColor="@color/colorPrimary"
-                android:textSize="20sp"
-                android:layout_marginTop="30dp"
-                android:textStyle="bold"
-                android:layout_marginBottom="16dp" />
+                android:orientation="horizontal">
+                <!-- Tiêu đề -->
+                <com.google.android.material.textview.MaterialTextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/cap_nhat_gia_gio"
+                    android:textColor="@color/colorPrimary"
+                    android:textSize="20sp"
+                    android:layout_marginTop="30dp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="16dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_add_newBoard"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_gravity="center"
+                    android:layout_marginStart="10dp"
+                    android:text="Thêm bảng cho sân mới"
+                    android:textSize="12sp"
+                    android:layout_marginTop="7dp"
+                    android:textColor="@color/colorPrimary"
+                    app:icon="@drawable/ic_add"
+                    app:iconTint="@color/colorPrimary"
+                    app:iconSize="16dp"
+                    app:strokeColor="@color/colorPrimary"
+                    app:cornerRadius="18dp" />
+            </LinearLayout>
 
             <!-- Container cho RecyclerView và ProgressBar -->
             <FrameLayout

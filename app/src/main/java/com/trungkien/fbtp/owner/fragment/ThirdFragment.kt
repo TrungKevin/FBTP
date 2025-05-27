@@ -1,6 +1,11 @@
 package com.trungkien.fbtp.owner.fragment
 
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Bundle
 import android.util.Log
 import android.view.Gravity
@@ -13,18 +18,20 @@ import android.widget.Toast
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.FirebaseFirestoreException
 import com.trungkien.fbtp.R
+import com.trungkien.fbtp.AccountActivity
 import com.trungkien.fbtp.owner.activity.ItemDetailOwnerActivity
 import com.trungkien.fbtp.owner.activity.UploadInfoActivity
-import com.trungkien.fbtp.AccountActivity
 import com.trungkien.fbtp.Adapter.UploadAdapter
 import com.trungkien.fbtp.model.SportFacility
+import com.trungkien.fbtp.owner.activity.NotificationActivity
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -40,12 +47,30 @@ class ThirdFragment : Fragment() {
     private lateinit var fab: FloatingActionButton
     private lateinit var progressBar: ProgressBar
     private lateinit var uploadAdapter: UploadAdapter
-    private var lastClickTime = 0L // For click debouncing
-    private val debounceDuration = 500L // 500ms debounce
-    private var listenerJob: Job? = null // Track snapshot listener
+    private var lastClickTime = 0L
+    private val debounceDuration = 500L
+    private var listenerJob: Job? = null
+    private val facilities: MutableList<SportFacility> = mutableListOf() // Added class-level property//****
 
     companion object {
         private const val TAG = "ThirdFragment"
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {//****
+        super.onCreate(savedInstanceState)
+        // Register broadcast receiver for profile image updates
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == "com.trungkien.fbtp.PROFILE_IMAGE_UPDATED") {
+                    Log.d(TAG, "Received PROFILE_IMAGE_UPDATED broadcast")
+                    notifyProfileImageUpdate()
+                }
+            }
+        }
+        LocalBroadcastManager.getInstance(requireContext()).registerReceiver(
+            receiver,
+            IntentFilter("com.trungkien.fbtp.PROFILE_IMAGE_UPDATED")
+        )
     }
 
     override fun onCreateView(
@@ -63,21 +88,51 @@ class ThirdFragment : Fragment() {
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
 
         if (!::uploadAdapter.isInitialized) {
-            uploadAdapter = UploadAdapter(mutableListOf()) { sportFacility ->
-                // Debounce item clicks
-                val currentTime = System.currentTimeMillis()
-                if (currentTime - lastClickTime > debounceDuration) {
-                    lastClickTime = currentTime
-                    val intent = Intent(requireContext(), ItemDetailOwnerActivity::class.java).apply {
-                        putExtra("coSoID", sportFacility.coSoID)
-                        if (sportFacility.images.isNotEmpty()) {
-                            putExtra("image", sportFacility.images[0])
+            uploadAdapter = UploadAdapter(
+                mutableListOf(),
+                userRole = "owner",
+                onItemClick = { sportFacility ->
+                    val currentTime = System.currentTimeMillis()
+                    if (currentTime - lastClickTime > debounceDuration) {
+                        lastClickTime = currentTime
+                        val intent = Intent(requireContext(), ItemDetailOwnerActivity::class.java).apply {
+                            putExtra("coSoID", sportFacility.coSoID)
+                            if (sportFacility.images.isNotEmpty()) {
+                                putExtra("image", sportFacility.images[0])
+                            }
+                            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
                         }
-                        flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        startActivity(intent)
                     }
-                    startActivity(intent)
+                },
+                onBookClick = { /* No-op: Owners don't book facilities */ },
+                onNotificationClick = { sportFacility ->
+                     val debounceDuration = 500L
+                        val currentTime = System.currentTimeMillis()
+                        if (currentTime  > debounceDuration) {
+                            Log.d(TAG, "Notification button clicked for facility: ${sportFacility.coSoID}")
+                            if (!isNetworkAvailable(requireContext())) {
+                                Toast.makeText(context, "Không có kết nối mạng", Toast.LENGTH_SHORT).show()
+                            }
+                            try {
+                                if (sportFacility.coSoID.isNotEmpty()) {
+                                    val intent = Intent(activity, NotificationActivity::class.java).apply {
+                                        putExtra("coSoID", sportFacility.coSoID)
+                                    }
+                                    requireContext().startActivity(intent)
+                                } else {
+                                    Log.e(TAG, "coSoID is empty for facility: ${sportFacility.name}")
+                                    Toast.makeText(requireContext(), "Dữ liệu cơ sở không hợp lệ", Toast.LENGTH_SHORT).show()
+                                }
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error starting NotificationActivity: ${e.message}", e)
+                                Toast.makeText(requireContext(), "Lỗi hệ thống, vui lòng thử lại", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+
                 }
-            }
+
+            )
             recyclerView.adapter = uploadAdapter
         }
 
@@ -90,17 +145,21 @@ class ThirdFragment : Fragment() {
         return view
     }
 
-    override fun onResume() {
+    override fun onResume() {//****
         super.onResume()
-        // Only set up listener if not active
         if (listenerJob == null || listenerJob?.isCancelled == true) {
             setupSnapshotListener()
         }
     }
-
+    private fun isNetworkAvailable(context: Context): Boolean {
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = connectivityManager.activeNetwork ?: return false
+        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+    }
     override fun onPause() {
         super.onPause()
-        // Cancel listener to prevent memory leaks
         listenerJob?.cancel()
         listenerJob = null
     }
@@ -114,7 +173,7 @@ class ThirdFragment : Fragment() {
             return
         }
 
-        listenerJob?.cancel() // Cancel any existing listener
+        listenerJob?.cancel()
         listenerJob = viewLifecycleOwner.lifecycleScope.launch {
             try {
                 progressBar.visibility = View.VISIBLE
@@ -123,11 +182,7 @@ class ThirdFragment : Fragment() {
                     .addSnapshotListener { snapshot, error ->
                         if (error != null) {
                             Log.e(TAG, "Snapshot listener error: ${error.message}", error)
-                            if (error is FirebaseFirestoreException && error.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
-                                Toast.makeText(requireContext(), "Bạn không có quyền truy cập dữ liệu. Kiểm tra quy tắc bảo mật.", Toast.LENGTH_LONG).show()
-                            } else {
-                                Toast.makeText(requireContext(), "Lỗi khi tải dữ liệu: ${error.message}", Toast.LENGTH_SHORT).show()
-                            }
+                            Toast.makeText(requireContext(), "Lỗi khi tải dữ liệu: ${error.message}", Toast.LENGTH_SHORT).show()
                             updateUI(emptyList())
                             return@addSnapshotListener
                         }
@@ -138,12 +193,13 @@ class ThirdFragment : Fragment() {
                             return@addSnapshotListener
                         }
 
-                        // Deduplicate facilities by coSoID
                         val facilitiesMap = mutableMapOf<String, SportFacility>()
                         for (doc in snapshot.documents) {
                             val facility = doc.toObject(SportFacility::class.java)?.copy(coSoID = doc.id)
                             if (facility != null && facility.coSoID.isNotEmpty()) {
                                 facilitiesMap[facility.coSoID] = facility
+                            } else {
+                                Log.w(TAG, "Invalid facility: coSoID is empty for document ${doc.id}")
                             }
                         }
                         val facilities = facilitiesMap.values.toList()
@@ -161,11 +217,18 @@ class ThirdFragment : Fragment() {
         }
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        Glide.get(requireContext()).clearMemory()
+    }
+
     private fun updateUI(facilities: List<SportFacility>) {
         if (!isAdded || view == null) {
             Log.w(TAG, "Fragment not attached or view is null, skipping UI update")
             return
         }
+        this.facilities.clear() // Clear old data
+        this.facilities.addAll(facilities) // Update class-level property
         if (facilities.isEmpty()) {
             initialLayout.visibility = View.VISIBLE
             contentLayout.visibility = View.GONE
@@ -209,10 +272,14 @@ class ThirdFragment : Fragment() {
             try {
                 val facilityRef = db.collection("sport_facilities").document(coSoID)
                 facilityRef.update("images", listOf(imageBase64)).await()
-                // No need to reload manually; snapshot listener will handle updates
             } catch (e: Exception) {
                 Log.e(TAG, "Error updating facility image: ${e.message}", e)
             }
         }
+    }
+
+    fun notifyProfileImageUpdate() {//****
+        Log.d(TAG, "Notifying adapter of profile image update, facilities count: ${facilities.size}")
+        uploadAdapter.updateData(facilities)
     }
 }

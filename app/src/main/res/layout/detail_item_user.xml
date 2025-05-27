@@ -208,7 +208,7 @@ android:layout_below="@id/btn_back_detail_renter">
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/price_detail_list_renter"
                     android:layout_width="match_parent"
-                    android:layout_height="200dp"
+                    android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"/>
 
                 <!-- Add empty state TextView -->

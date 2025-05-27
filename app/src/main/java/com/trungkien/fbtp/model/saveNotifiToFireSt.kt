@@ -1,19 +1,28 @@
 package com.trungkien.fbtp.model
 
-import android.os.Message
 import com.google.firebase.firestore.FirebaseFirestore
 
-fun saveNotifiToFireSt (userID: String, message: String) {
+fun saveNotifiToFireSt(
+    userID: String,
+    title: String,
+    message: String,
+    type: NotificationType,
+    relatedID: String
+) {
     val db = FirebaseFirestore.getInstance()
+    val notificationID = db.collection("notifications").document().id
     val notification = Notification(
-        notificationID = db.collection("notifications").document().id,
-            userID = userID,
-            message = message,
-            isRead = false
+        notificationId = notificationID,
+        userID = userID,
+        title = title,
+        message = message,
+        isRead = false,
+        type = type,
+        relatedID = relatedID
     )
 
     db.collection("notifications")
-        .document(notification.notificationID)
+        .document(notificationID)
         .set(notification)
         .addOnSuccessListener {
             println("Lưu thông báo thành công!")

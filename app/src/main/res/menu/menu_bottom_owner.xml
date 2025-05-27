@@ -3,7 +3,7 @@
     <item
         android:id="@+id/nav_third_fragment"
         android:icon="@drawable/ic_home"
-        android:title="@string/project_id" />
+        android:title="Danh sách sân" />
     <item
         android:id="@+id/nav_fourth_fragment"
         android:icon="@drawable/ic_stats"
@@ -11,5 +11,5 @@
     <item
         android:id="@+id/nav_fifth_fragment"
         android:icon="@drawable/ic_profile"
-        android:title="Profile" />
+        android:title="Cá nhân" />
 </menu>

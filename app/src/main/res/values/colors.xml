@@ -6,6 +6,9 @@
     <color name="colorPrimary">#4CD851</color>
     <color name="colorPrimaryDark">#432fbf</color>
     <color name="colorAccent">#D81B60</color>
+    <color name="status_confirmed">#4CAF50</color>
+    <color name="divider_color">#E0E0E0</color>
+    <color name="text_primary">#212121</color>
 
     <color name="colorTextPrimary">#ffffff</color>
     <color name="colorTextSecondary">#A3FFFFFF</color>
@@ -17,13 +20,13 @@
     <color name="gray_light">#B3FFFFFF</color>
     <color name="gray_dark">#403C3C</color>
     <!-- New colors for booking status -->
-    <color name="colorBooked">#FFCDD2</color> <!-- Light red for booked -->
+    <color name="colorBooked">#F34658</color> <!-- Light red for booked -->
     <color name="colorAvailable">#C1F1C3</color> <!-- Light green for available -->
 
         <color name="textPrimary">#212121</color>
         <color name="textSecondary">#757575</color>
         <color name="dividerColor">#E0E0E0</color>
-
+    <color name="colorSelected">#FFFF00</color>
         <color name="cardBackground">#FAFAFA</color>
     <!-- Màu chính -->
 

@@ -1,4 +1,3 @@
-
 package com.trungkien.fbtp.owner.fragment
 
 import android.app.AlertDialog
@@ -224,12 +223,141 @@ class FourthFragment : Fragment() {
                 }
             }
         }
+
+        binding.btnAddNewBoard.setOnClickListener {
+            if (isLoading) return@setOnClickListener // Ngăn chặn click khi đang tải
+            lifecycleScope.launch {
+                try {
+                    showLoading(true)
+
+                    // Kiểm tra người dùng xác thực
+                    val currentUser = auth.currentUser
+                    if (currentUser == null) {
+                        Log.e("FourthFragment", "Không có người dùng được xác thực")
+                        Toast.makeText(context, "Vui lòng đăng nhập lại", Toast.LENGTH_LONG).show()
+                        return@launch
+                    }
+                    val currentUid = currentUser.uid
+
+                    // Lấy tất cả timeSlots của owner và deduplicate
+                    val allTimeSlotsSnapshot = firestore.collection("timeSlots")
+                        .whereEqualTo("ownerID", currentUid)
+                        .get()
+                        .await()
+                    if (allTimeSlotsSnapshot.isEmpty) {
+                        Log.d("FourthFragment", "Không có khung giờ nào để thêm")
+                        Toast.makeText(context, "Không có khung giờ nào để thêm", Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
+
+                    // Deduplicate timeSlots dựa trên session, courtSize, period, price
+                    val uniqueTimeSlots = mutableMapOf<String, TimeSlot>()
+                    for (doc in allTimeSlotsSnapshot.documents) {
+                        val timeSlot = doc.toObject(TimeSlot::class.java) ?: continue
+                        val key = "${timeSlot.session}_${timeSlot.courtSize}_${timeSlot.period}_${timeSlot.price}"
+                        if (!uniqueTimeSlots.containsKey(key)) {
+                            uniqueTimeSlots[key] = timeSlot
+                        }
+                    }
+                    if (uniqueTimeSlots.isEmpty()) {
+                        Log.d("FourthFragment", "Không có khung giờ duy nhất để thêm")
+                        Toast.makeText(context, "Không có khung giờ nào để thêm", Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
+
+                    // Lấy tất cả cơ sở của owner
+                    val facilitiesSnapshot = firestore.collection("sport_facilities")
+                        .whereEqualTo("ownerID", currentUid)
+                        .get()
+                        .await()
+                    if (facilitiesSnapshot.isEmpty) {
+                        Log.w("FourthFragment", "Không tìm thấy cơ sở nào cho ownerID: $currentUid")
+                        Toast.makeText(context, "Không tìm thấy sân nào để thêm khung giờ", Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
+
+                    // Tìm các cơ sở có price_detail_list_owner trống
+                    val emptyFacilities = mutableListOf<String>()
+                    for (facilityDoc in facilitiesSnapshot.documents) {
+                        val facilityCoSoID = facilityDoc.id
+                        val timeSlotsSnapshot = firestore.collection("timeSlots")
+                            .whereEqualTo("coSoID", facilityCoSoID)
+                            .get()
+                            .await()
+                        if (timeSlotsSnapshot.isEmpty) {
+                            emptyFacilities.add(facilityCoSoID)
+                        }
+                    }
+
+                    if (emptyFacilities.isEmpty()) {
+                        Log.d("FourthFragment", "Không có cơ sở nào có price_detail_list_owner trống")
+                        Toast.makeText(context, "Không có sân nào cần thêm khung giờ", Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
+
+                    // Tạo batch để thêm timeSlots
+                    val batch = firestore.batch()
+                    var addedCount = 0
+
+                    for (coSoID in emptyFacilities) {
+                        // Lấy tất cả sân cho cơ sở này
+                        val courtsSnapshot = firestore.collection("courts")
+                            .whereEqualTo("coSoID", coSoID)
+                            .get()
+                            .await()
+                        if (courtsSnapshot.isEmpty) {
+                            Log.w("FourthFragment", "Không tìm thấy sân nào cho coSoID: $coSoID")
+                            continue
+                        }
+
+                        // Thêm các timeSlots duy nhất vào cơ sở này
+                        for ((key, timeSlot) in uniqueTimeSlots) {
+                            for (courtDoc in courtsSnapshot.documents) {
+                                val courtID = courtDoc.id
+                                val newTimeSlot = timeSlot.copy(
+                                    pricingID = UUID.randomUUID().toString(),
+                                    coSoID = coSoID,
+                                    courtID = courtID
+                                )
+                                batch.set(
+                                    firestore.collection("timeSlots").document(newTimeSlot.pricingID),
+                                    newTimeSlot
+                                )
+                                addedCount++
+                                Log.d("FourthFragment", "Thêm khung giờ: ${newTimeSlot.pricingID} cho coSoID: $coSoID, courtID: $courtID, key: $key")
+                            }
+                        }
+                    }
+
+                    // Thực hiện batch
+                    if (addedCount > 0) {
+                        batch.commit().await()
+                        Log.d("FourthFragment", "Đã thêm $addedCount khung giờ cho ${emptyFacilities.size} cơ sở")
+                        Toast.makeText(context, "Thêm khung giờ cho sân thành công", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Log.d("FourthFragment", "Không có khung giờ nào được thêm")
+                        Toast.makeText(context, "Không có khung giờ nào được thêm", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    Log.e("FourthFragment", "Lỗi khi thêm khung giờ", e)
+                    val errorMessage = if (e.message?.contains("PERMISSION_DENIED") == true) {
+                        "Không có quyền thêm khung giờ. Vui lòng kiểm tra quyền."
+                    } else {
+                        "Lỗi khi thêm khung giờ: ${e.message}"
+                    }
+                    Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                } finally {
+                    showLoading(false)
+                }
+            }
+        }
     }
 
     private fun showLoading(show: Boolean) {
         isLoading = show
         binding.progressBar.visibility = if (show) View.VISIBLE else View.GONE
         binding.btnXacNhan.isEnabled = !show
+        binding.btnAddNewBoard.isEnabled = !show // Vô hiệu hóa nút trong khi tải
         binding.root.isEnabled = !show // Vô hiệu hóa root view để ngăn tương tác
         // Thông báo adapter để vô hiệu hóa các nút
         priceBoardAdapter.setLoading(show)
@@ -520,10 +648,24 @@ class FourthFragment : Fragment() {
         }
     }
 
+    private fun isValidTimeSlot(timeSlot: TimeSlot): Boolean {
+        return timeSlot.pricingID.isNotEmpty() &&
+                timeSlot.ownerID.isNotEmpty() &&
+                timeSlot.session.isNotEmpty() &&
+                timeSlot.courtSize.isNotEmpty() &&
+                timeSlot.period.isNotEmpty() &&
+                timeSlot.price > 0
+    }
+
     private fun listenToFirestoreChanges() {
         if (auth.currentUser == null) {
             Log.w("FourthFragment", "Không có người dùng được xác thực, bỏ qua listener Firestore")
             Toast.makeText(context, "Vui lòng đăng nhập lại để tải dữ liệu", Toast.LENGTH_LONG).show()
+            return
+        }
+        if (coSoID.isEmpty()) {
+            Log.e("FourthFragment", "Invalid coSoID: $coSoID")
+            Toast.makeText(context, "Dữ liệu sân không hợp lệ", Toast.LENGTH_LONG).show()
             return
         }
         firestore.collection("timeSlots")
@@ -543,11 +685,14 @@ class FourthFragment : Fragment() {
                     timeSlots.clear()
                     val uniqueTimeSlots = mutableMapOf<String, TimeSlot>()
                     for (doc in snapshot.documents) {
-                        val timeSlot = doc.toObject(TimeSlot::class.java) ?: continue
-                        // Tạo key duy nhất dựa trên session, courtSize, period, price
-                        val key = "${timeSlot.session}_${timeSlot.courtSize}_${timeSlot.period}_${timeSlot.price}"
-                        if (!uniqueTimeSlots.containsKey(key)) {
-                            uniqueTimeSlots[key] = timeSlot
+                        val timeSlot = doc.toObject(TimeSlot::class.java)?.copy(pricingID = doc.id) ?: continue
+                        if (isValidTimeSlot(timeSlot) && timeSlot.coSoID == coSoID) {
+                            val key = "${timeSlot.session}_${timeSlot.courtSize}_${timeSlot.period}_${timeSlot.price}_${timeSlot.coSoID}"
+                            if (!uniqueTimeSlots.containsKey(key)) {
+                                uniqueTimeSlots[key] = timeSlot
+                            }
+                        } else {
+                            Log.w("FourthFragment", "Skipped invalid or mismatched time slot: pricingID=${timeSlot.pricingID}, coSoID=${timeSlot.coSoID}, data=${doc.data}")
                         }
                     }
 
@@ -572,7 +717,7 @@ class FourthFragment : Fragment() {
 
                     timeSlots.addAll(sortedTimeSlots)
                     priceBoardAdapter.notifyDataSetChanged()
-                    Log.d("FourthFragment", "Đã tải ${timeSlots.size} khung giờ duy nhất cho ownerID: ${auth.currentUser?.uid}")
+                    Log.d("FourthFragment", "Đã tải ${timeSlots.size} khung giờ duy nhất cho ownerID: ${auth.currentUser?.uid}, coSoID: $coSoID")
                 }
             }
     }

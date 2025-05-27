@@ -1,4 +1,4 @@
-package com.trungkien.fbtp.viewmodel
+package com.trungkien.fbtp.ViewModel
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData

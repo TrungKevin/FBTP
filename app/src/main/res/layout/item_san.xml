@@ -11,145 +11,181 @@
     app:cardElevation="4dp"
     app:cardBackgroundColor="@android:color/white">
 
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:layout_height="wrap_content">
 
         <!-- Banner Image -->
         <ImageView
             android:id="@+id/img_san"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="120dp"
             android:scaleType="centerCrop"
             android:src="@drawable/sanbong"
-            android:contentDescription="@string/field_image" />
+            android:contentDescription="@string/field_image"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
 
-        <!-- Content Below Image -->
-        <LinearLayout
+        <!-- Logo với hình dạng tròn -->
+        <com.google.android.material.imageview.ShapeableImageView
+            android:id="@+id/img_logo"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="16dp"
+            android:scaleType="centerCrop"
+            android:src="@drawable/ic_club_logo"
+            android:contentDescription="@string/club_logo"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/img_san"
+            app:shapeAppearanceOverlay="@style/circleImageView"
+            app:strokeColor="#E0E0E0"
+            app:strokeWidth="1dp" />
+
+        <!-- Club Name and VS -->
+        <TextView
+            android:id="@+id/txt_tenSan"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="8dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="Friends Pickleball IX Club"
+            android:textColor="@android:color/black"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:layout_constraintStart_toEndOf="@id/img_logo"
+            app:layout_constraintTop_toTopOf="@id/img_logo"
+            app:layout_constraintEnd_toStartOf="@id/txt_vs_item"
+            tools:ignore="HardcodedText" />
+
+        <!-- VS (Court Type) -->
+        <TextView
+            android:id="@+id/txt_vs_item"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="..vs.."
+            android:textColor="@android:color/black"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:layout_marginEnd="150dp"
+            app:layout_constraintBaseline_toBaselineOf="@id/txt_tenSan"
+            app:layout_constraintEnd_toStartOf="@id/btn_book"
+            app:layout_constraintStart_toEndOf="@id/txt_tenSan"
+            tools:ignore="HardcodedText" />
+
+        <!-- Address -->
+        <TextView
+            android:id="@+id/txt_diaChi"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:layout_marginEnd="8dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="(49.5km) 18 đường 14, Khu dân cư Bắc Hà Hoa..."
+            android:textColor="@android:color/black"
+            android:textSize="14sp"
+            app:layout_constraintStart_toStartOf="@id/txt_tenSan"
+            app:layout_constraintTop_toBottomOf="@id/txt_tenSan"
+            app:layout_constraintEnd_toStartOf="@id/btn_book"
+            tools:ignore="HardcodedText" />
+
+        <!-- Operating Hours -->
+        <ImageView
+            android:id="@+id/ic_duration"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_marginTop="4dp"
+            android:contentDescription="@string/operating_hours"
+            android:src="@drawable/ic_duration"
+            app:layout_constraintStart_toStartOf="@id/txt_diaChi"
+            app:layout_constraintTop_toBottomOf="@id/txt_diaChi"
+            app:tint="@android:color/black" />
+
+        <TextView
+            android:id="@+id/txt_gio_item"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:text="05:00 - 24:00"
+            android:textColor="@android:color/black"
+            android:textSize="14sp"
+            app:layout_constraintBottom_toBottomOf="@id/ic_duration"
+            app:layout_constraintStart_toEndOf="@id/ic_duration"
+            app:layout_constraintTop_toTopOf="@id/ic_duration"
+            tools:ignore="HardcodedText" />
+
+        <!-- Phone -->
+        <ImageView
+            android:id="@+id/ic_phone"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_marginStart="15dp"
+            android:src="@drawable/ic_phone"
+            app:layout_constraintBottom_toBottomOf="@id/ic_duration"
+            app:layout_constraintStart_toEndOf="@id/txt_gio_item"
+            app:layout_constraintTop_toTopOf="@id/ic_duration"
+            app:tint="@android:color/black" />
+
+        <TextView
+            android:id="@+id/txt_sdt_item"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:text="0934070607"
+            android:textColor="@android:color/black"
+            android:textSize="14sp"
+            app:layout_constraintBottom_toBottomOf="@id/ic_phone"
+            app:layout_constraintStart_toEndOf="@id/ic_phone"
+            app:layout_constraintTop_toTopOf="@id/ic_phone"
+            tools:ignore="HardcodedText" />
+
+        <!-- Icon chuông thông báo -->
+        <ImageButton
+            android:id="@+id/btn_notification"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_marginEnd="16dp"
+            android:src="@drawable/ic_chuong"
+            app:tint="#4CAF50"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:padding="6dp"
+            android:contentDescription="Thông báo"
+            android:clickable="true"
+            android:focusable="true"
+            android:elevation="8dp"
+            app:layout_constraintBottom_toBottomOf="@id/ic_duration"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/img_logo" />
+
+
+        <!-- Book Button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_book"
+            android:layout_width="wrap_content"
+            android:layout_height="50dp"
+            android:layout_marginEnd="16dp"
+            android:backgroundTint="#FFC107"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:text="ĐẶT LỊCH"
+            android:textColor="@android:color/black"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            app:cornerRadius="8dp"
+            app:layout_constraintBottom_toBottomOf="@id/ic_duration"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/img_logo"
+            tools:ignore="HardcodedText" />
+        <!-- Add bottom margin for better spacing -->
+        <Space
             android:layout_width="match_parent"
-            android:layout_height="100dp"
-            android:orientation="horizontal"
-            android:padding="16dp"
-            android:gravity="center_vertical">
+            android:layout_height="16dp"
+            app:layout_constraintTop_toBottomOf="@id/ic_duration"
+            app:layout_constraintBottom_toBottomOf="parent" />
 
-            <!-- Logo với hình dạng tròn và căn chỉnh giữa -->
-            <com.google.android.material.imageview.ShapeableImageView
-                android:id="@+id/img_logo"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:scaleType="centerCrop"
-                android:src="@drawable/ic_club_logo"
-                android:contentDescription="@string/club_logo"
-                android:layout_marginEnd="12dp"
-                app:shapeAppearanceOverlay="@style/circleImageView"
-                app:strokeColor="#E0E0E0"
-                app:strokeWidth="1dp" />
-
-            <!-- Club Details -->
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <!-- Club Name -->
-                <TextView
-                    android:id="@+id/txt_tenSan"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:ellipsize="end"
-                    android:maxLines="1"
-                    android:text="Friends Pickleball IX Club"
-                    android:textColor="@android:color/black"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    tools:ignore="HardcodedText" />
-
-                <!-- Distance and Address -->
-                <TextView
-                    android:id="@+id/txt_diaChi"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:ellipsize="end"
-                    android:maxLines="1"
-                    android:text="(49.5km) 18 đường 14, Khu dân cư Bắc Hà Hoa..."
-                    android:textColor="@android:color/black"
-                    android:textSize="14sp"
-                    tools:ignore="HardcodedText" />
-
-                <!-- Operating Hours -->
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginTop="4dp"
-                    android:gravity="center_vertical">
-
-                    <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="19dp"
-                        android:layout_marginEnd="4dp"
-                        android:contentDescription="@string/operating_hours"
-                        android:src="@drawable/ic_duration"
-                        app:tint="@android:color/black" />
-
-                    <TextView
-                        android:id="@+id/txt_gio_item"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="05:00 - 24:00"
-                        android:textColor="@android:color/black"
-                        android:textSize="14sp"
-                        tools:ignore="HardcodedText" />
-
-                    <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:src="@drawable/ic_phone"
-                        app:tint="@android:color/black"
-                        android:layout_marginEnd="4dp"
-                        android:layout_marginStart="15dp"
-                        />
-
-                    <TextView
-                        android:id="@+id/txt_sdt_item"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="0934070607"
-                        android:textColor="@android:color/black"
-                        android:textSize="14sp"
-                        tools:ignore="HardcodedText" />
-                    <TextView
-                        android:id="@+id/txt_vs_item"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="..vs.."
-                        android:layout_marginStart="20dp"
-                        android:textColor="@android:color/black"
-                        android:textSize="14sp"
-                        android:textStyle="bold"
-                        tools:ignore="HardcodedText" />
-
-                </LinearLayout>
-            </LinearLayout>
-
-            <!-- Book Button -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_book"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:layout_marginStart="8dp"
-                android:backgroundTint="#FFC107"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:text="ĐẶT LỊCH"
-                android:textColor="@android:color/black"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                app:cornerRadius="8dp"
-                tools:ignore="HardcodedText" />
-        </LinearLayout>
-    </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.cardview.widget.CardView>

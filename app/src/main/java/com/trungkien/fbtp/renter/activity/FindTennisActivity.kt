@@ -10,13 +10,14 @@ import android.util.Log
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.firebase.firestore.FirebaseFirestore
 import com.trungkien.fbtp.Adapter.UploadAdapter
-import com.trungkien.fbtp.databinding.FindFootballBinding
 import com.trungkien.fbtp.databinding.FindTennisBinding
+import com.trungkien.fbtp.model.Court
 import com.trungkien.fbtp.model.SportFacility
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -41,12 +42,20 @@ class FindTennisActivity : AppCompatActivity() {
 
         // Khởi tạo RecyclerView và adapter
         binding.listInforTn.layoutManager = LinearLayoutManager(this)
-        adapter = UploadAdapter(filteredFacilityList) { facility ->
-            val intent = Intent(this, ItemDetailUserActivity::class.java).apply {
-                putExtra("coSoID", facility.coSoID)
-            }
-            startActivity(intent)
-        }
+        adapter = UploadAdapter(
+            filteredFacilityList,
+            userRole = "renter", // Thêm userRole
+            onItemClick = { facility ->
+                val intent = Intent(this, ItemDetailUserActivity::class.java).apply {
+                    putExtra("coSoID", facility.coSoID)
+                }
+                startActivity(intent)
+            },
+            onBookClick = { facility ->
+                handleBookClick(facility)
+            },
+            onNotificationClick = {}
+        )
         binding.listInforTn.adapter = adapter
 
         // Xử lý nút back
@@ -91,8 +100,52 @@ class FindTennisActivity : AppCompatActivity() {
         return activeNetwork?.isConnected == true
     }
 
+    private fun handleBookClick(sportFacility: SportFacility) {
+        lifecycleScope.launch {
+            try {
+                val snapshot = db.collection("courts")
+                    .whereEqualTo("coSoID", sportFacility.coSoID)
+                    .get()
+                    .await()
+                val courts = snapshot.toObjects(Court::class.java)
 
-    // ... (giữ nguyên các import, biến, onCreate, isNetworkAvailable, filterFacilities)
+                if (courts.isEmpty()) {
+                    Toast.makeText(this@FindTennisActivity, "Không có sân nào khả dụng", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+
+                if (courts.size > 1) {
+                    val courtTypes = courts.map { it.size }.distinct().toTypedArray()
+                    AlertDialog.Builder(this@FindTennisActivity)
+                        .setTitle("Chọn loại sân")
+                        .setItems(courtTypes) { _, which ->
+                            val selectedCourt = courts.find { it.size == courtTypes[which] }
+                            selectedCourt?.let {
+                                startBookingActivity(sportFacility.coSoID, it.courtID, it.size)
+                            }
+                        }
+                        .setNegativeButton("Hủy", null)
+                        .show()
+                } else {
+                    val court = courts.first()
+                    startBookingActivity(sportFacility.coSoID, court.courtID, court.size)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error fetching courts: ${e.message}", e)
+                Toast.makeText(this@FindTennisActivity, "Lỗi khi tải danh sách sân: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun startBookingActivity(coSoID: String, courtID: String, courtType: String) {
+        val intent = Intent(this, DatLichActivity::class.java).apply {
+            putExtra("coSoID", coSoID)
+            putExtra("courtID", courtID)
+            putExtra("courtType", courtType)
+        }
+        startActivity(intent)
+    }
+
     private fun loadFacilities() {
         lifecycleScope.launch {
             binding.progressBar.visibility = View.VISIBLE
@@ -100,7 +153,6 @@ class FindTennisActivity : AppCompatActivity() {
                 facilityList.clear()
                 filteredFacilityList.clear()
 
-                // Truy vấn các sân thuộc loại "Football"
                 val courtSnapshot = withContext(Dispatchers.IO) {
                     db.collection("courts")
                         .whereEqualTo("sportType", "Tennis")
@@ -117,7 +169,6 @@ class FindTennisActivity : AppCompatActivity() {
                     return@launch
                 }
 
-                // Tải thông tin cơ sở
                 for (courtDoc in courtSnapshot) {
                     val court = courtDoc.toObject(com.trungkien.fbtp.model.Court::class.java)
                     Log.d(TAG, "Xử lý court: coSoID=${court.coSoID}, sportType=${court.sportType}")
@@ -130,11 +181,9 @@ class FindTennisActivity : AppCompatActivity() {
                         }
 
                         if (facilityDoc.exists()) {
-                            // Log dữ liệu thô để debug
                             Log.d(TAG, "Dữ liệu sport_facilities ${court.coSoID}: ${facilityDoc.data}")
                             val facility = facilityDoc.toObject(SportFacility::class.java)
                             facility?.let {
-                                // Kiểm tra để tránh trùng lặp coSoID
                                 if (!facilityList.any { existing -> existing.coSoID == it.coSoID }) {
                                     facilityList.add(it)
                                     Log.d(TAG, "Thêm sân: name=${it.name}, coSoID=${it.coSoID}")
@@ -150,11 +199,10 @@ class FindTennisActivity : AppCompatActivity() {
                     }
                 }
 
-                // Cập nhật danh sách hiển thị
                 filteredFacilityList.addAll(facilityList)
                 binding.progressBar.visibility = View.GONE
                 if (filteredFacilityList.isEmpty()) {
-                    Toast.makeText(this@FindTennisActivity, "Không tìm thấy sân bóng đá nào hợp lệ", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@FindTennisActivity, "Không tìm thấy sân Tennis nào hợp lệ", Toast.LENGTH_SHORT).show()
                 } else {
                     adapter.notifyDataSetChanged()
                     Log.d(TAG, "Số lượng sân hiển thị: ${filteredFacilityList.size}")

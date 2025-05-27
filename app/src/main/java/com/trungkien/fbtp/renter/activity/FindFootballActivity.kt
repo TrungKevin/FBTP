@@ -10,6 +10,7 @@ import android.util.Log
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -17,6 +18,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.trungkien.fbtp.R
 import com.trungkien.fbtp.Adapter.UploadAdapter
 import com.trungkien.fbtp.databinding.FindFootballBinding
+import com.trungkien.fbtp.model.Court
 import com.trungkien.fbtp.model.SportFacility
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -41,12 +43,20 @@ class FindFootballActivity : AppCompatActivity() {
 
         // Khởi tạo RecyclerView và adapter
         binding.listInforFB.layoutManager = LinearLayoutManager(this)
-        adapter = UploadAdapter(filteredFacilityList) { facility ->
-            val intent = Intent(this, ItemDetailUserActivity::class.java).apply {
-                putExtra("coSoID", facility.coSoID)
-            }
-            startActivity(intent)
-        }
+        adapter = UploadAdapter(
+            filteredFacilityList,
+            userRole = "renter", // Thêm userRole
+            onItemClick = { facility ->
+                val intent = Intent(this, ItemDetailUserActivity::class.java).apply {
+                    putExtra("coSoID", facility.coSoID)
+                }
+                startActivity(intent)
+            },
+            onBookClick = { facility ->
+                handleBookClick(facility)
+            },
+            onNotificationClick = {}
+        )
         binding.listInforFB.adapter = adapter
 
         // Xử lý nút back
@@ -91,81 +101,123 @@ class FindFootballActivity : AppCompatActivity() {
         return activeNetwork?.isConnected == true
     }
 
-
-// ... (giữ nguyên các import, biến, onCreate, isNetworkAvailable, filterFacilities)
-private fun loadFacilities() {
-    lifecycleScope.launch {
-        binding.progressBar.visibility = View.VISIBLE
-        try {
-            facilityList.clear()
-            filteredFacilityList.clear()
-
-            // Truy vấn các sân thuộc loại "Football"
-            val courtSnapshot = withContext(Dispatchers.IO) {
-                db.collection("courts")
-                    .whereEqualTo("sportType", "Football")
+    private fun handleBookClick(sportFacility: SportFacility) {
+        lifecycleScope.launch {
+            try {
+                val snapshot = db.collection("courts")
+                    .whereEqualTo("coSoID", sportFacility.coSoID)
                     .get()
                     .await()
-            }
+                val courts = snapshot.toObjects(Court::class.java)
 
-            Log.d(TAG, "Số lượng tài liệu courts với sportType=Football: ${courtSnapshot.size()}")
-
-            if (courtSnapshot.isEmpty) {
-                binding.progressBar.visibility = View.GONE
-                Toast.makeText(this@FindFootballActivity, "Không tìm thấy sân bóng đá nào trong Firestore", Toast.LENGTH_SHORT).show()
-                adapter.notifyDataSetChanged()
-                return@launch
-            }
-
-            // Tải thông tin cơ sở
-            for (courtDoc in courtSnapshot) {
-                val court = courtDoc.toObject(com.trungkien.fbtp.model.Court::class.java)
-                Log.d(TAG, "Xử lý court: coSoID=${court.coSoID}, sportType=${court.sportType}")
-                try {
-                    val facilityDoc = withContext(Dispatchers.IO) {
-                        db.collection("sport_facilities")
-                            .document(court.coSoID)
-                            .get()
-                            .await()
-                    }
-
-                    if (facilityDoc.exists()) {
-                        // Log dữ liệu thô để debug
-                        Log.d(TAG, "Dữ liệu sport_facilities ${court.coSoID}: ${facilityDoc.data}")
-                        val facility = facilityDoc.toObject(SportFacility::class.java)
-                        facility?.let {
-                            // Kiểm tra để tránh trùng lặp coSoID
-                            if (!facilityList.any { existing -> existing.coSoID == it.coSoID }) {
-                                facilityList.add(it)
-                                Log.d(TAG, "Thêm sân: name=${it.name}, coSoID=${it.coSoID}")
-                            } else {
-                                Log.d(TAG, "Bỏ qua sân trùng lặp: name=${it.name}, coSoID=${it.coSoID}")
-                            }
-                        } ?: Log.w(TAG, "Không ánh xạ được SportFacility cho coSoID: ${court.coSoID}")
-                    } else {
-                        Log.w(TAG, "Không tìm thấy cơ sở với coSoID: ${court.coSoID}")
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Lỗi khi tải cơ sở ${court.coSoID}: ${e.message}", e)
+                if (courts.isEmpty()) {
+                    Toast.makeText(this@FindFootballActivity, "Không có sân nào khả dụng", Toast.LENGTH_SHORT).show()
+                    return@launch
                 }
-            }
 
-            // Cập nhật danh sách hiển thị
-            filteredFacilityList.addAll(facilityList)
-            binding.progressBar.visibility = View.GONE
-            if (filteredFacilityList.isEmpty()) {
-                Toast.makeText(this@FindFootballActivity, "Không tìm thấy sân bóng đá nào hợp lệ", Toast.LENGTH_SHORT).show()
-            } else {
-                adapter.notifyDataSetChanged()
-                Log.d(TAG, "Số lượng sân hiển thị: ${filteredFacilityList.size}")
+                if (courts.size > 1) {
+                    val courtTypes = courts.map { it.size }.distinct().toTypedArray()
+                    AlertDialog.Builder(this@FindFootballActivity)
+                        .setTitle("Chọn loại sân")
+                        .setItems(courtTypes) { _, which ->
+                            val selectedCourt = courts.find { it.size == courtTypes[which] }
+                            selectedCourt?.let {
+                                startBookingActivity(sportFacility.coSoID, it.courtID, it.size)
+                            }
+                        }
+                        .setNegativeButton("Hủy", null)
+                        .show()
+                } else {
+                    val court = courts.first()
+                    startBookingActivity(sportFacility.coSoID, court.courtID, court.size)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error fetching courts: ${e.message}", e)
+                Toast.makeText(this@FindFootballActivity, "Lỗi khi tải danh sách sân: ${e.message}", Toast.LENGTH_SHORT).show()
             }
-        } catch (e: Exception) {
-            binding.progressBar.visibility = View.GONE
-            Toast.makeText(this@FindFootballActivity, "Lỗi khi tải danh sách sân: ${e.message}", Toast.LENGTH_SHORT).show()
-            Log.e(TAG, "Lỗi khi tải danh sách: ${e.message}", e)
         }
     }
-}
+
+    private fun startBookingActivity(coSoID: String, courtID: String, courtType: String) {
+        val intent = Intent(this, DatLichActivity::class.java).apply {
+            putExtra("coSoID", coSoID)
+            putExtra("courtID", courtID)
+            putExtra("courtType", courtType)
+        }
+        startActivity(intent)
+    }
+
+    private fun loadFacilities() {
+        lifecycleScope.launch {
+            binding.progressBar.visibility = View.VISIBLE
+            try {
+                facilityList.clear()
+                filteredFacilityList.clear()
+
+                // Truy vấn các sân thuộc loại "Football"
+                val courtSnapshot = withContext(Dispatchers.IO) {
+                    db.collection("courts")
+                        .whereEqualTo("sportType", "Football")
+                        .get()
+                        .await()
+                }
+
+                Log.d(TAG, "Số lượng tài liệu courts với sportType=Football: ${courtSnapshot.size()}")
+
+                if (courtSnapshot.isEmpty) {
+                    binding.progressBar.visibility = View.GONE
+                    Toast.makeText(this@FindFootballActivity, "Không tìm thấy sân bóng đá nào trong Firestore", Toast.LENGTH_SHORT).show()
+                    adapter.notifyDataSetChanged()
+                    return@launch
+                }
+
+                // Tải thông tin cơ sở
+                for (courtDoc in courtSnapshot) {
+                    val court = courtDoc.toObject(com.trungkien.fbtp.model.Court::class.java)
+                    Log.d(TAG, "Xử lý court: coSoID=${court.coSoID}, sportType=${court.sportType}")
+                    try {
+                        val facilityDoc = withContext(Dispatchers.IO) {
+                            db.collection("sport_facilities")
+                                .document(court.coSoID)
+                                .get()
+                                .await()
+                        }
+
+                        if (facilityDoc.exists()) {
+                            Log.d(TAG, "Dữ liệu sport_facilities ${court.coSoID}: ${facilityDoc.data}")
+                            val facility = facilityDoc.toObject(SportFacility::class.java)
+                            facility?.let {
+                                if (!facilityList.any { existing -> existing.coSoID == it.coSoID }) {
+                                    facilityList.add(it)
+                                    Log.d(TAG, "Thêm sân: name=${it.name}, coSoID=${it.coSoID}")
+                                } else {
+                                    Log.d(TAG, "Bỏ qua sân trùng lặp: name=${it.name}, coSoID=${it.coSoID}")
+                                }
+                            } ?: Log.w(TAG, "Không ánh xạ được SportFacility cho coSoID: ${court.coSoID}")
+                        } else {
+                            Log.w(TAG, "Không tìm thấy cơ sở với coSoID: ${court.coSoID}")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Lỗi khi tải cơ sở ${court.coSoID}: ${e.message}", e)
+                    }
+                }
+
+                // Cập nhật danh sách hiển thị
+                filteredFacilityList.addAll(facilityList)
+                binding.progressBar.visibility = View.GONE
+                if (filteredFacilityList.isEmpty()) {
+                    Toast.makeText(this@FindFootballActivity, "Không tìm thấy sân bóng đá nào hợp lệ", Toast.LENGTH_SHORT).show()
+                } else {
+                    adapter.notifyDataSetChanged()
+                    Log.d(TAG, "Số lượng sân hiển thị: ${filteredFacilityList.size}")
+                }
+            } catch (e: Exception) {
+                binding.progressBar.visibility = View.GONE
+                Toast.makeText(this@FindFootballActivity, "Lỗi khi tải danh sách sân: ${e.message}", Toast.LENGTH_SHORT).show()
+                Log.e(TAG, "Lỗi khi tải danh sách: ${e.message}", e)
+            }
+        }
+    }
 
     private fun filterFacilities(query: String) {
         filteredFacilityList.clear()

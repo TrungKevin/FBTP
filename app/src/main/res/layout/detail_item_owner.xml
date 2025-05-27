@@ -121,47 +121,6 @@
                         <ImageView
                             android:layout_width="24dp"
                             android:layout_height="24dp"
-                            android:src="@drawable/ic_court"
-                            app:tint="@color/colorPrimary"
-                            android:layout_marginEnd="16dp"
-                            android:contentDescription="@string/operating_hours" />
-
-                        <TextView
-                            android:id="@+id/txt_vs_detail"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="..vs.."
-                            android:textColor="@android:color/black"
-                            android:textSize="14sp"
-                            tools:ignore="HardcodedText" />
-                    </LinearLayout>
-
-                    <!-- EditText cho giờ hoạt động (ẩn ban đầu) -->
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:id="@+id/input_layout_vs"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:visibility="gone"
-                        android:layout_marginBottom="16dp">
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/edt_vs_detail_owner"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:hint="Giờ hoạt động (VD:..vs..)"
-                            android:textColor="@color/black"
-                            android:textSize="16sp"/>
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:layout_marginBottom="16dp">
-
-                        <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
                             android:src="@drawable/ic_duration"
                             app:tint="@color/colorPrimary"
                             android:layout_marginEnd="16dp"
@@ -194,6 +153,7 @@
                     </com.google.android.material.textfield.TextInputLayout>
 
                     <!-- Địa chỉ -->
+                    " -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -328,30 +288,76 @@
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
                         android:padding="20dp">
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:padding="5dp">
-                        <TextView
-                            android:layout_width="wrap_content"
+                        <LinearLayout
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="@string/bang_ngayGio"
-                            android:textColor="@color/colorPrimary"
-                            android:textSize="20sp"
-                            android:textStyle="bold"
-                            android:layout_marginBottom="16dp"/>
+                            android:orientation="horizontal"
+                            android:padding="5dp">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/bang_ngayGio"
+                                android:textColor="@color/colorPrimary"
+                                android:textSize="20sp"
+                                android:textStyle="bold"
+                                android:layout_marginBottom="16dp"/>
+                        </LinearLayout>
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="12dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginEnd="24dp"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+
+                                <View
+                                    android:layout_width="24dp"
+                                    android:layout_height="24dp"
+                                    android:layout_marginEnd="8dp"
+                                    android:background="@color/colorAvailable" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Trống"
+                                    android:textColor="@color/textPrimary"
+                                    android:textSize="14sp" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+
+                                <View
+                                    android:layout_width="24dp"
+                                    android:layout_height="24dp"
+                                    android:layout_marginEnd="8dp"
+                                    android:background="#F65464" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Đã đặt"
+                                    android:textColor="@color/textPrimary"
+                                    android:textSize="14sp" />
 
 
-                    </LinearLayout>
+                            </LinearLayout>
+                        </LinearLayout>
                         <androidx.recyclerview.widget.RecyclerView
                             android:id="@+id/rcv_calenda_owner"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
-
                             />
-
                         <!-- RecyclerView show time slots -->
                         <androidx.recyclerview.widget.RecyclerView
                             android:id="@+id/rcv_khungGio_owner"

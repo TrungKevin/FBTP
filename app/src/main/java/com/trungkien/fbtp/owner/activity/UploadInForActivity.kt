@@ -52,7 +52,7 @@ class UploadInfoActivity : AppCompatActivity() {
     private val sportTypes = listOf("Football", "Badminton", "Pickleball", "Tennis")
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
-    private lateinit var khungGioAdapter: KhungGioAdapter // Use lateinit var to avoid reassignment issues
+    private lateinit var khungGioAdapter: KhungGioAdapter
     private var coSoID: String = ""
     private val timeFramesByDate = mutableMapOf<String, TimeFrame>()
     private var courtID: String = ""
@@ -162,7 +162,7 @@ class UploadInfoActivity : AppCompatActivity() {
         }
 
         // Initialize KhungGioAdapter for rcv_khungGio_upLoad
-        khungGioAdapter = KhungGioAdapter(emptyList()) { position -> }
+        khungGioAdapter = KhungGioAdapter(emptyList()) {  position, _, _ ->}
         binding.rcvKhungGioUpLoad.apply {
             adapter = khungGioAdapter
             layoutManager = GridLayoutManager(this@UploadInfoActivity, 3)
@@ -187,7 +187,7 @@ class UploadInfoActivity : AppCompatActivity() {
                 else -> ""
             }
 
-            if (loaiSan == "Football" && courtSize.isEmpty()) {
+            if (courtSize.isEmpty()) {
                 showToast("Vui lòng chọn kích thước sân trước khi thiết lập ngày giờ")
                 return@setOnClickListener
             }
@@ -357,7 +357,7 @@ class UploadInfoActivity : AppCompatActivity() {
                 showToast("Vui lòng chọn loại sân")
                 return
             }
-            loaiSan == "Football" && courtSize.isEmpty() -> {
+            courtSize.isEmpty() -> {
                 showToast("Vui lòng chọn kích thước sân")
                 return
             }
@@ -468,7 +468,7 @@ class UploadInfoActivity : AppCompatActivity() {
                 courtName = tenSan,
                 sportType = loaiSan,
                 status = "available",
-                size = courtSize,
+                size = courtSize, // Use selected courtSize from radioGroupSizeSan
                 period = "",
                 pricePerHour = 0.0,
                 session = ""

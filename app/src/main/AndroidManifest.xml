@@ -29,55 +29,68 @@
         android:usesCleartextTraffic="true"
         tools:ignore="GoogleAppIndexingWarning">
         <activity
-            android:name=".renter.activity.DatLichActivity"
+            android:name=".owner.activity.NotificationActivity"
             android:exported="false"
-            android:theme="@style/Theme.MaterialComponents.NoActionBar" /> <!-- Added theme to fix crash -->
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.FBTP" />
         <!-- Main Entry Point -->
         <activity
             android:name=".MainActivity"
-            android:exported="true">
-
-        </activity> <!-- Authentication Activities -->
-
+            android:exported="true"
+            android:theme="@style/Theme.FBTP" /> <!-- Authentication Activities -->
         <activity
             android:name=".AccountActivity"
-            android:exported="true">
+            android:exported="true"
+            android:theme="@style/Theme.FBTP">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-
         <activity
             android:name=".RegisterActivity"
-            android:exported="false" /> <!-- Owner Activities -->
+            android:exported="false"
+            android:theme="@style/Theme.FBTP" /> <!-- Owner Activities -->
         <activity
             android:name=".owner.activity.UploadInfoActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:theme="@style/Theme.FBTP" />
         <activity
             android:name=".owner.activity.ThietLapNgayGio"
-            android:exported="false" />
+            android:exported="false"
+            android:theme="@style/Theme.FBTP" />
         <activity
             android:name=".owner.activity.ItemDetailOwnerActivity"
             android:exported="false"
-            android:launchMode="singleTop" /> <!-- Renter Activities -->
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.FBTP" /> <!-- Renter Activities -->
+        <activity
+            android:name=".renter.activity.DatLichActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MaterialComponents.NoActionBar" />
         <activity
             android:name=".renter.activity.FindFootballActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:theme="@style/Theme.FBTP" />
         <activity
             android:name=".renter.activity.FindBadmintonActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:theme="@style/Theme.FBTP" />
         <activity
             android:name=".renter.activity.FindPickleballActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:theme="@style/Theme.FBTP" />
         <activity
             android:name=".renter.activity.FindTennisActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:theme="@style/Theme.FBTP" />
         <activity
             android:name=".renter.activity.ItemDetailUserActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:theme="@style/Theme.FBTP" />
+
+
     </application>
 
 </manifest>

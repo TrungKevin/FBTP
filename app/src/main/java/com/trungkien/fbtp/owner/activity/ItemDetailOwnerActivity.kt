@@ -65,6 +65,7 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
     private var lastSnapshotUpdateTime = 0L
     private var lastTimePickerUpdateTime = 0L
     private var loadingOverlay: View? = null
+    private var referencePeriods: List<String>? = null // Track periods from first day
 
     private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let { handleImageUri(it) }
@@ -184,6 +185,12 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
             updateTimeSlotsForDate()
         }
         binding.rcvCalendaOwner.adapter = calendarAdapter
+
+        // Initialize selectedDate to the first day
+        if (calendarDays.isNotEmpty()) {
+            selectedDate = calendarDays[0].date
+            calendarAdapter.notifyItemChanged(0)
+        }
     }
 
     private suspend fun getCourtSize(courtID: String): String? {
@@ -216,6 +223,16 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                     }
                 }
                 Log.d("ItemDetailOwnerActivity", "Loaded $validTimeFrames valid time frames for coSoID: $coSoID")
+
+                // Initialize referencePeriods with the first available time frame or default
+                val firstTimeFrame = timeFramesByDate.values.firstOrNull()
+                referencePeriods = if (firstTimeFrame != null && firstTimeFrame.period.isNotEmpty()) {
+                    firstTimeFrame.period
+                } else {
+                    generateDefaultPeriods()
+                }
+                Log.d("ItemDetailOwnerActivity", "Initialized referencePeriods: $referencePeriods")
+
                 updateTimeSlotsForDate()
             } catch (e: Exception) {
                 Log.e("ItemDetailOwnerActivity", "Error loading time frames for coSoID: $coSoID, ${e.message}", e)
@@ -224,6 +241,8 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                     binding.rcvKhungGioOwner.visibility = View.GONE
                     binding.emptyStateView.visibility = View.VISIBLE
                 }
+                // Fallback: Initialize referencePeriods with default periods
+                referencePeriods = generateDefaultPeriods()
                 updateTimeSlotsForDate()
             } finally {
                 hideLoading()
@@ -231,28 +250,13 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
         }
     }
 
-    private fun generateDefaultTimeSlots(courtSize: String, courtID: String): List<TimeSlot> {
-        val defaultPeriods = listOf(
+    private fun generateDefaultPeriods(): List<String> {
+        return listOf(
             "08:00-09:00", "09:00-10:00", "10:00-11:00", "11:00-12:00",
             "12:00-13:00", "13:00-14:00", "14:00-15:00", "15:00-16:00",
             "16:00-17:00", "17:00-18:00", "18:00-19:00", "19:00-20:00",
             "20:00-21:00", "21:00-22:00"
         )
-        return defaultPeriods.map { period ->
-            TimeSlot(
-                price = 0.0,
-                courtSize = courtSize,
-                period = period,
-                session = when {
-                    period.startsWith("08") || period.startsWith("09") || period.startsWith("10") || period.startsWith("11") -> "Sáng"
-                    period.startsWith("12") || period.startsWith("13") || period.startsWith("14") || period.startsWith("15") || period.startsWith("16") -> "Chiều"
-                    else -> "Tối"
-                },
-                isTimeRange = true,
-                courtID = courtID,
-                coSoID = coSoID
-            )
-        }.sortedBy { it.period }
     }
 
     private fun updateTimeSlotsForDate() {
@@ -273,29 +277,33 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
             }
             val courtSize = courtID.takeIf { it.isNotEmpty() }?.let { getCourtSize(it) } ?: "Unknown"
 
-            val timeSlots = if (selectedTimeFrame != null && selectedTimeFrame.period.isNotEmpty()) {
-                selectedTimeFrame.period.map { period ->
-                    TimeSlot(
-                        price = 0.0,
-                        courtSize = courtSize,
-                        period = period,
-                        session = when {
-                            period.startsWith("08") || period.startsWith("09") || period.startsWith("10") || period.startsWith("11") -> "Sáng"
-                            period.startsWith("12") || period.startsWith("13") || period.startsWith("14") || period.startsWith("15") || period.startsWith("16") -> "Chiều"
-                            else -> "Tối"
-                        },
-                        isTimeRange = true,
-                        courtID = courtID,
-                        coSoID = coSoID
-                    )
-                }.sortedBy { it.period }
-            } else {
-                generateDefaultTimeSlots(courtSize, courtID)
-            }
+            // Use referencePeriods for consistency
+            val periods = referencePeriods ?: generateDefaultPeriods()
+            val timeSlots = periods.map { period ->
+                // Determine booking status from time frame
+                val isBooked = selectedTimeFrame?.bookedPeriods?.get(period) ?: false
+                TimeSlot(
+                    price = 0.0,
+                    courtSize = courtSize,
+                    period = period,
+                    session = when {
+                        period.startsWith("08") || period.startsWith("09") || period.startsWith("10") || period.startsWith("11") -> "Sáng"
+                        period.startsWith("12") || period.startsWith("13") || period.startsWith("14") || period.startsWith("15") || period.startsWith("16") -> "Chiều"
+                        else -> "Tối"
+                    },
+                    isTimeRange = true,
+                    courtID = courtID,
+                    coSoID = coSoID,
+                    date = selectedDate ?: "",
+                    isBooked = isBooked
+                )
+            }.sortedBy { it.period }
 
-            khungGioAdapter.updateData(timeSlots)
-            binding.rcvKhungGioOwner.visibility = if (timeSlots.isEmpty()) View.GONE else View.VISIBLE
-            binding.emptyStateView.visibility = if (timeSlots.isEmpty()) View.VISIBLE else View.GONE
+            runOnUiThread {
+                khungGioAdapter.updateData(timeSlots)
+                binding.rcvKhungGioOwner.visibility = if (timeSlots.isEmpty()) View.GONE else View.VISIBLE
+                binding.emptyStateView.visibility = if (timeSlots.isEmpty()) View.VISIBLE else View.GONE
+            }
         }
     }
 
@@ -511,15 +519,15 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
             layoutManager = LinearLayoutManager(this@ItemDetailOwnerActivity)
         }
 
-        khungGioAdapter = KhungGioAdapter(emptyList()) { position ->
+        khungGioAdapter = KhungGioAdapter(emptyList()) { position, _, _ ->
             if (!isEditing) {
-                Toast.makeText(this, "Chọn khung giờ: ${khungGioAdapter.timeSlots[position].period}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Vui lòng nhấn 'Cập nhật' để chỉnh sửa hoặc xóa khung giờ", Toast.LENGTH_SHORT).show()
             } else {
                 if (selectedDate.isNullOrEmpty()) {
                     Toast.makeText(this, "Vui lòng chọn ngày trước khi chỉnh sửa hoặc xóa", Toast.LENGTH_SHORT).show()
                     return@KhungGioAdapter
                 }
-                val timeSlot = khungGioAdapter.timeSlots.getOrNull(position)
+                val timeSlot = khungGioAdapter.getTimeSlot(position)
                 if (timeSlot == null) {
                     Log.e("ItemDetailOwnerActivity", "Invalid time slot at position: $position")
                     Toast.makeText(this, "Lỗi: Khung giờ không hợp lệ", Toast.LENGTH_SHORT).show()
@@ -704,6 +712,13 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                     return@launch
                 }
 
+                // Determine courtSize
+                val courtSize = if (slots.isNotEmpty() && slots.first().courtSize.isNotEmpty()) {
+                    slots.first().courtSize
+                } else {
+                    getCourtSize(courtID) ?: "Unknown"
+                }
+
                 val timeFrameQuery = db.collection("time_frames")
                     .whereEqualTo("coSoID", coSoID)
                     .whereEqualTo("courtID", courtID)
@@ -723,10 +738,11 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                         courtID = courtID,
                         coSoID = coSoID,
                         date = selectedDate!!,
-                        period = slots.map { it.period }
+                        period = slots.map { it.period },
+                        courtSize = courtSize // Use the determined courtSize
                     )
                     batch.set(db.collection("time_frames").document(newTimeFrame.timeFrameID), newTimeFrame)
-                    Log.d("ItemDetailOwnerActivity", "Creating new time frame: timeFrameID=${newTimeFrame.timeFrameID}, periods=${newTimeFrame.period}")
+                    Log.d("ItemDetailOwnerActivity", "Creating new time frame: timeFrameID=${newTimeFrame.timeFrameID}, periods=${newTimeFrame.period}, courtSize=$courtSize")
                 }
 
                 withTimeoutOrNull(10000) {
@@ -1188,8 +1204,6 @@ class ItemDetailOwnerActivity : AppCompatActivity() {
                     } catch (e: Exception) {
                         Log.e("ItemDetailOwnerActivity", "Error fetching court size for coSoID: $coSoID, ${e.message}", e)
                     }
-
-                    binding.txtVsDetail.text = courtSize ?: "..vs.."
 
                     if (it.images.isNotEmpty() && binding.imgDetailOwner.drawable == null) {
                         if (it.images[0].startsWith("http")) {

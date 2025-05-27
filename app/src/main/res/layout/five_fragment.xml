@@ -167,6 +167,9 @@
                         android:paddingVertical="16dp"
                         android:textColor="@color/black" />
                 </com.google.android.material.textfield.TextInputLayout>
+
+
+
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -225,6 +228,7 @@
                     app:boxStrokeColor="@color/colorPrimary"
                     app:boxStrokeWidth="1.5dp"
                     app:endIconMode="password_toggle"
+                    app:startIconDrawable="@drawable/ic_lock"
                     app:startIconTint="@color/colorPrimary">
 
                     <com.google.android.material.textfield.TextInputEditText
@@ -252,6 +256,7 @@
                     app:endIconMode="password_toggle"
                     app:helperText="Mật khẩu tối thiểu 8 ký tự"
                     app:helperTextEnabled="true"
+                    app:startIconDrawable="@drawable/ic_lock"
                     app:startIconTint="@color/colorPrimary">
 
                     <com.google.android.material.textfield.TextInputEditText
@@ -277,6 +282,7 @@
                     app:boxStrokeColor="@color/colorPrimary"
                     app:boxStrokeWidth="1.5dp"
                     app:endIconMode="password_toggle"
+                    app:startIconDrawable="@drawable/ic_lock"
                     app:startIconTint="@color/colorPrimary">
 
                     <com.google.android.material.textfield.TextInputEditText
@@ -299,6 +305,7 @@
                     android:textColor="@color/white"
                     android:textSize="16sp"
                     app:cornerRadius="10dp"
+                    app:icon="@drawable/ic_save"
                     app:iconGravity="textStart"
                     app:iconPadding="8dp"
                     app:iconTint="@color/white" />

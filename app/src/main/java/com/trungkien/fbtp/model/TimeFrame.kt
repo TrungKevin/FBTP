@@ -10,17 +10,18 @@ data class TimeFrame(
     @PropertyName("coSoID") val coSoID: String = "",
     @PropertyName("date") val date: String = "",
     @PropertyName("period") val period: List<String> = emptyList(),
-    @PropertyName("courtSize") val courtSize: String? = null // Optional, may not exist
+    @PropertyName("courtSize") val courtSize: String? = null,
+    @PropertyName("bookedPeriods") val bookedPeriods: Map<String, Boolean> = emptyMap()
 ) : Parcelable {
 
-    // Secondary constructor for Parcelable
     constructor(parcel: Parcel) : this(
         timeFrameID = parcel.readString() ?: "",
         courtID = parcel.readString() ?: "",
         coSoID = parcel.readString() ?: "",
         date = parcel.readString() ?: "",
         period = parcel.createStringArrayList() ?: emptyList(),
-        courtSize = parcel.readString() // Đọc giá trị courtSize
+        courtSize = parcel.readString(),
+        bookedPeriods = parcel.readHashMap(HashMap::class.java.classLoader) as? Map<String, Boolean> ?: emptyMap()
     )
 
     override fun writeToParcel(parcel: Parcel, flags: Int) {
@@ -29,7 +30,8 @@ data class TimeFrame(
         parcel.writeString(coSoID)
         parcel.writeString(date)
         parcel.writeStringList(period)
-        parcel.writeString(courtSize) // Ghi giá trị courtSize vào Parcel
+        parcel.writeString(courtSize)
+        parcel.writeMap(bookedPeriods)
     }
 
     override fun describeContents(): Int = 0

@@ -10,13 +10,15 @@ import android.util.Log
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.trungkien.fbtp.Adapter.UploadAdapter
 import com.trungkien.fbtp.databinding.FindBadmintonBinding
-import com.trungkien.fbtp.databinding.FindFootballBinding
+import com.trungkien.fbtp.model.Court
 import com.trungkien.fbtp.model.SportFacility
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -29,6 +31,8 @@ class FindBadmintonActivity : AppCompatActivity() {
     private val db = FirebaseFirestore.getInstance()
     private val facilityList = mutableListOf<SportFacility>()
     private val filteredFacilityList = mutableListOf<SportFacility>()
+    private var courtListener: ListenerRegistration? = null
+    private var facilityListener: ListenerRegistration? = null
 
     companion object {
         private const val TAG = "FindBadmintonActivity"
@@ -41,12 +45,20 @@ class FindBadmintonActivity : AppCompatActivity() {
 
         // Khởi tạo RecyclerView và adapter
         binding.listInforBmt.layoutManager = LinearLayoutManager(this)
-        adapter = UploadAdapter(filteredFacilityList) { facility ->
-            val intent = Intent(this, ItemDetailUserActivity::class.java).apply {
-                putExtra("coSoID", facility.coSoID)
-            }
-            startActivity(intent)
-        }
+        adapter = UploadAdapter(
+            filteredFacilityList,
+            userRole = "renter",
+            onItemClick = { facility ->
+                val intent = Intent(this, ItemDetailUserActivity::class.java).apply {
+                    putExtra("coSoID", facility.coSoID)
+                }
+                startActivity(intent)
+            },
+            onBookClick = { facility ->
+                handleBookClick(facility)
+            },
+            onNotificationClick = {}
+        )
         binding.listInforBmt.adapter = adapter
 
         // Xử lý nút back
@@ -72,9 +84,9 @@ class FindBadmintonActivity : AppCompatActivity() {
             }
         }
 
-        // Tải dữ liệu
+        // Thiết lập listener cho dữ liệu
         if (isNetworkAvailable()) {
-            loadFacilities()
+            setupSnapshotListener()
         } else {
             binding.progressBar.visibility = View.GONE
             Toast.makeText(
@@ -91,80 +103,154 @@ class FindBadmintonActivity : AppCompatActivity() {
         return activeNetwork?.isConnected == true
     }
 
-
-    // ... (giữ nguyên các import, biến, onCreate, isNetworkAvailable, filterFacilities)
-    private fun loadFacilities() {
+    private fun handleBookClick(sportFacility: SportFacility) {
         lifecycleScope.launch {
-            binding.progressBar.visibility = View.VISIBLE
             try {
-                facilityList.clear()
-                filteredFacilityList.clear()
+                val snapshot = db.collection("courts")
+                    .whereEqualTo("coSoID", sportFacility.coSoID)
+                    .get()
+                    .await()
+                val courts = snapshot.toObjects(Court::class.java)
 
-                // Truy vấn các sân thuộc loại "Football"
-                val courtSnapshot = withContext(Dispatchers.IO) {
-                    db.collection("courts")
-                        .whereEqualTo("sportType", "Badminton")
-                        .get()
-                        .await()
-                }
-
-                Log.d(TAG, "Số lượng tài liệu courts với sportType=Badminton: ${courtSnapshot.size()}")
-
-                if (courtSnapshot.isEmpty) {
-                    binding.progressBar.visibility = View.GONE
-                    Toast.makeText(this@FindBadmintonActivity, "Không tìm thấy sân cầu lông nào trong Firestore", Toast.LENGTH_SHORT).show()
-                    adapter.notifyDataSetChanged()
+                if (courts.isEmpty()) {
+                    Toast.makeText(this@FindBadmintonActivity, "Không có sân nào khả dụng", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
 
-                // Tải thông tin cơ sở
-                for (courtDoc in courtSnapshot) {
-                    val court = courtDoc.toObject(com.trungkien.fbtp.model.Court::class.java)
-                    Log.d(TAG, "Xử lý court: coSoID=${court.coSoID}, sportType=${court.sportType}")
-                    try {
-                        val facilityDoc = withContext(Dispatchers.IO) {
-                            db.collection("sport_facilities")
-                                .document(court.coSoID)
-                                .get()
-                                .await()
+                if (courts.size > 1) {
+                    val courtTypes = courts.map { it.size }.distinct().toTypedArray()
+                    AlertDialog.Builder(this@FindBadmintonActivity)
+                        .setTitle("Chọn loại sân")
+                        .setItems(courtTypes) { _, which ->
+                            val selectedCourt = courts.find { it.size == courtTypes[which] }
+                            selectedCourt?.let {
+                                startBookingActivity(sportFacility.coSoID, it.courtID, it.size)
+                            }
                         }
-
-                        if (facilityDoc.exists()) {
-                            // Log dữ liệu thô để debug
-                            Log.d(TAG, "Dữ liệu sport_facilities ${court.coSoID}: ${facilityDoc.data}")
-                            val facility = facilityDoc.toObject(SportFacility::class.java)
-                            facility?.let {
-                                // Kiểm tra để tránh trùng lặp coSoID
-                                if (!facilityList.any { existing -> existing.coSoID == it.coSoID }) {
-                                    facilityList.add(it)
-                                    Log.d(TAG, "Thêm sân: name=${it.name}, coSoID=${it.coSoID}")
-                                } else {
-                                    Log.d(TAG, "Bỏ qua sân trùng lặp: name=${it.name}, coSoID=${it.coSoID}")
-                                }
-                            } ?: Log.w(TAG, "Không ánh xạ được SportFacility cho coSoID: ${court.coSoID}")
-                        } else {
-                            Log.w(TAG, "Không tìm thấy cơ sở với coSoID: ${court.coSoID}")
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Lỗi khi tải cơ sở ${court.coSoID}: ${e.message}", e)
-                    }
-                }
-
-                // Cập nhật danh sách hiển thị
-                filteredFacilityList.addAll(facilityList)
-                binding.progressBar.visibility = View.GONE
-                if (filteredFacilityList.isEmpty()) {
-                    Toast.makeText(this@FindBadmintonActivity, "Không tìm thấy sân cầu lông hợp lệ", Toast.LENGTH_SHORT).show()
+                        .setNegativeButton("Hủy", null)
+                        .show()
                 } else {
-                    adapter.notifyDataSetChanged()
-                    Log.d(TAG, "Số lượng sân hiển thị: ${filteredFacilityList.size}")
+                    val court = courts.first()
+                    startBookingActivity(sportFacility.coSoID, court.courtID, court.size)
                 }
             } catch (e: Exception) {
-                binding.progressBar.visibility = View.GONE
+                Log.e(TAG, "Error fetching courts: ${e.message}", e)
                 Toast.makeText(this@FindBadmintonActivity, "Lỗi khi tải danh sách sân: ${e.message}", Toast.LENGTH_SHORT).show()
-                Log.e(TAG, "Lỗi khi tải danh sách: ${e.message}", e)
             }
         }
+    }
+
+    private fun startBookingActivity(coSoID: String, courtID: String, courtType: String) {
+        val intent = Intent(this, DatLichActivity::class.java).apply {
+            putExtra("coSoID", coSoID)
+            putExtra("courtID", courtID)
+            putExtra("courtType", courtType)
+        }
+        startActivity(intent)
+    }
+
+    private fun setupSnapshotListener() {
+        binding.progressBar.visibility = View.VISIBLE
+        facilityList.clear()
+        filteredFacilityList.clear()
+        adapter.notifyDataSetChanged()
+
+        // Lắng nghe collection courts
+        courtListener = db.collection("courts")
+            .whereEqualTo("sportType", "Badminton")
+            .addSnapshotListener { courtSnapshot, courtError ->
+                if (courtError != null) {
+                    Log.e(TAG, "Error listening to courts: ${courtError.message}", courtError)
+                    runOnUiThread {
+                        binding.progressBar.visibility = View.GONE
+                        Toast.makeText(this, "Lỗi khi tải dữ liệu sân: ${courtError.message}", Toast.LENGTH_SHORT).show()
+                    }
+                    return@addSnapshotListener
+                }
+
+                if (courtSnapshot == null || courtSnapshot.isEmpty) {
+                    Log.d(TAG, "No courts found for sportType=Badminton")
+                    runOnUiThread {
+                        binding.progressBar.visibility = View.GONE
+                        Toast.makeText(this, "Không tìm thấy sân cầu lông nào", Toast.LENGTH_SHORT).show()
+                        updateUI(emptyList())
+                    }
+                    return@addSnapshotListener
+                }
+
+                lifecycleScope.launch {
+                    try {
+                        val facilitiesMap = mutableMapOf<String, SportFacility>()
+                        for (courtDoc in courtSnapshot.documents) {
+                            val court = courtDoc.toObject(Court::class.java) ?: continue
+                            Log.d(TAG, "Processing court: coSoID=${court.coSoID}, sportType=${court.sportType}")
+
+                            try {
+                                val facilityDoc = withContext(Dispatchers.IO) {
+                                    db.collection("sport_facilities")
+                                        .document(court.coSoID)
+                                        .get()
+                                        .await()
+                                }
+
+                                if (facilityDoc.exists()) {
+                                    val facility = facilityDoc.toObject(SportFacility::class.java)?.copy(coSoID = facilityDoc.id)
+                                    facility?.let {
+                                        facilitiesMap[it.coSoID] = it
+                                        Log.d(TAG, "Added facility: name=${it.name}, coSoID=${it.coSoID}")
+                                    } ?: Log.w(TAG, "Failed to map SportFacility for coSoID: ${court.coSoID}")
+                                } else {
+                                    Log.w(TAG, "No facility found for coSoID: ${court.coSoID}")
+                                }
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error fetching facility ${court.coSoID}: ${e.message}", e)
+                            }
+                        }
+
+                        // Lắng nghe collection sport_facilities để cập nhật thay đổi
+                        facilityListener?.remove()
+                        facilityListener = db.collection("sport_facilities")
+                            .whereIn("coSoID", facilitiesMap.keys.toList())
+                            .addSnapshotListener { facilitySnapshot, facilityError ->
+                                if (facilityError != null) {
+                                    Log.e(TAG, "Error listening to facilities: ${facilityError.message}", facilityError)
+                                    runOnUiThread {
+                                        Toast.makeText(this@FindBadmintonActivity, "Lỗi khi tải dữ liệu cơ sở: ${facilityError.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                    return@addSnapshotListener
+                                }
+
+                                if (facilitySnapshot != null) {
+                                    for (doc in facilitySnapshot.documents) {
+                                        val facility = doc.toObject(SportFacility::class.java)?.copy(coSoID = doc.id)
+                                        facility?.let {
+                                            facilitiesMap[it.coSoID] = it
+                                            Log.d(TAG, "Updated facility: name=${it.name}, coSoID=${it.coSoID}")
+                                        }
+                                    }
+                                }
+
+                                runOnUiThread {
+                                    binding.progressBar.visibility = View.GONE
+                                    updateUI(facilitiesMap.values.toList())
+                                }
+                            }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error processing courts: ${e.message}", e)
+                        runOnUiThread {
+                            binding.progressBar.visibility = View.GONE
+                            Toast.makeText(this@FindBadmintonActivity, "Lỗi khi tải dữ liệu: ${e.message}", Toast.LENGTH_SHORT).show()
+                            updateUI(emptyList())
+                        }
+                    }
+                }
+            }
+    }
+
+    private fun updateUI(facilities: List<SportFacility>) {
+        facilityList.clear()
+        facilityList.addAll(facilities)
+        filterFacilities(binding.edtTimKiemBmt.text.toString())
     }
 
     private fun filterFacilities(query: String) {
@@ -182,5 +268,11 @@ class FindBadmintonActivity : AppCompatActivity() {
         if (filteredFacilityList.isEmpty()) {
             Toast.makeText(this, "Không tìm thấy sân phù hợp", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        courtListener?.remove()
+        facilityListener?.remove()
     }
 }

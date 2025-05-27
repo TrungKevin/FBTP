@@ -82,7 +82,7 @@ class ThietLapNgayGio : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
-        khungGioAdapter = KhungGioAdapter(emptyList()) { position ->
+        khungGioAdapter = KhungGioAdapter(emptyList()) { position, _, _ ->
             if (selectedDate.isEmpty()) {
                 Toast.makeText(this, "Vui lòng chọn ngày trước khi chỉnh sửa hoặc xóa", Toast.LENGTH_SHORT).show()
                 binding.scVCalendaThietLap.smoothScrollTo(0, 0)

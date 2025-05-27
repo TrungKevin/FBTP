@@ -14,6 +14,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.ktx.Firebase
 import com.trungkien.fbtp.databinding.ActivityMainBinding
 import com.trungkien.fbtp.owner.fragment.ThirdFragment
+import kotlinx.coroutines.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import me.ibrahimsn.lib.SmoothBottomBar
@@ -50,11 +51,15 @@ class MainActivity : AppCompatActivity() {
 
         navigateToStartDestination(isOwner, username)
         setupBottomBar(isOwner)
+
+        // Handle navigation from intent
+        handleIntentNavigation(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         intent?.let {
+            handleIntentNavigation(it)
             val coSoID = it.getStringExtra("coSoID")
             val imageBase64 = it.getStringExtra("imageBase64")
             if (coSoID != null && imageBase64 != null) {
@@ -63,6 +68,15 @@ class MainActivity : AppCompatActivity() {
                 fragment?.updateFacilityImage(coSoID, imageBase64) ?: run {
                     Log.d(TAG, "ThirdFragment not found, data will be refreshed on resume")
                 }
+            }
+        }
+    }
+
+    private fun handleIntentNavigation(intent: Intent) {
+        intent.getStringExtra("navigate_to")?.let { destination ->
+            if (destination == "SecondFragment" && !intent.getBooleanExtra("IS_OWNER", false)) {
+                navController.navigate(R.id.second_fragment)
+                binding.bottomNavigationRenter.itemActiveIndex = 1 // Select SecondFragment in SmoothBottomBar
             }
         }
     }
