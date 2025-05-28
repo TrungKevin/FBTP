@@ -2,9 +2,12 @@ package com.trungkien.fbtp.Adapter
 
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
+import com.trungkien.fbtp.R
 import com.trungkien.fbtp.databinding.ItemNotificationBinding
 import com.trungkien.fbtp.owner.activity.NotificationItem
 
@@ -36,9 +39,26 @@ class NotificationAdapter(
             tvCourtSize.text = "Loại sân: ${notification.courtSize.takeIf { it.isNotBlank() } ?: "Không xác định"}"
             tvBookingDay.text = "Ngày: ${notification.bookingDay.takeIf { it.isNotBlank() } ?: "Không xác định"}"
             tvBookingTime.text = "Giờ: ${notification.bookingTime.takeIf { it.isNotBlank() } ?: "Không xác định"}"
+            tvBookingStatus.text = when (notification.status) {
+                "confirmed" -> "Đã xác nhận"
+                "pending" -> "Đang chờ"
+                "cancelled" -> "Đã hủy"
+                "completed" -> "Đã hoàn thành"
+                else -> "Không xác định"
+            }
+            tvBookingStatus.visibility = View.VISIBLE
+            tvBookingStatus.background = ContextCompat.getDrawable(
+                holder.itemView.context,
+                when (notification.status) {
+                    "confirmed" -> R.drawable.status_background
+                    "pending" -> R.drawable.status_empty_box
+                    "cancelled" -> R.drawable.status_booked_box
+                    else -> R.drawable.status_booked_box
+                }
+            )
             root.setOnClickListener {
                 if (notification.notificationId.isNotEmpty()) {
-                    Log.d(TAG, "Clicked notification: ${notification.notificationId}")
+                    Log.d(TAG, "Clicked booking: ${notification.notificationId}")
                     onItemClick(notification.notificationId)
                 } else {
                     Log.w(TAG, "Empty notificationId for notification at position: $position")

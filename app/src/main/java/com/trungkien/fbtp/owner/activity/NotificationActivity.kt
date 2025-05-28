@@ -6,11 +6,8 @@ import android.net.NetworkCapabilities
 import android.os.Bundle
 import android.util.Log
 import android.view.View
-import android.view.ViewGroup
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.firebase.auth.FirebaseAuth
@@ -26,8 +23,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
-import java.text.SimpleDateFormat
-import java.util.Locale
 
 data class NotificationItem(
     val username: String,
@@ -35,8 +30,10 @@ data class NotificationItem(
     val courtSize: String,
     val bookingDay: String,
     val bookingTime: String,
-    val notificationId: String
+    val notificationId: String, // Maps to bookingID
+    val status: String = "Không xác định"
 )
+
 class NotificationActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityNotificationBinding
@@ -50,7 +47,6 @@ class NotificationActivity : AppCompatActivity() {
         binding = ActivityNotificationBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-
         setupRecyclerView()
         loadNotifications()
     }
@@ -63,10 +59,9 @@ class NotificationActivity : AppCompatActivity() {
                 capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
     }
 
-
     private fun setupRecyclerView() {
         notificationAdapter = NotificationAdapter(mutableListOf()) { notificationId ->
-            markNotificationAsRead(notificationId)
+            markBookingAsRead(notificationId)
         }
         binding.rcvNotifications.apply {
             adapter = notificationAdapter
@@ -100,75 +95,97 @@ class NotificationActivity : AppCompatActivity() {
                 if (courtIds.isEmpty() || coSoIds.isEmpty()) {
                     withContext(Dispatchers.Main) {
                         Toast.makeText(this@NotificationActivity, "Không tìm thấy sân nào của bạn", Toast.LENGTH_SHORT).show()
+                        showLoading(false)
                     }
                     return@launch
                 }
 
-                // Fetch notifications with pagination
-                val notificationsQuery = db.collection("notifications")
-                    .whereEqualTo("userID", currentUser.uid)
-                    .whereEqualTo("type", com.trungkien.fbtp.model.NotificationType.BOOKING)
-                    .orderBy("createdAt", Query.Direction.DESCENDING) // Sắp xếp theo thời gian
-                    .limit(10) // Giới hạn 10 thông báo
-                val notificationsSnapshot = notificationsQuery.get().await()
-                val notificationItems = mutableListOf<NotificationItem>()
+                // Real-time listener for bookings
+                db.collection("bookings")
+                    .whereIn("courtID", courtIds.take(10)) // Limit to 10 due to Firestore's IN query limit
+                    .whereIn("facilityID", coSoIds.take(10)) // Limit to 10 due to Firestore's IN query limit
+                    .orderBy("createdAt", Query.Direction.DESCENDING)
+                    .limit(10)
+                    .addSnapshotListener { snapshot, error ->
+                        if (error != null) {
+                            Log.e(TAG, "Error listening for bookings: ${error.message}", error)
+                            runOnUiThread {
+                                if (error.message?.contains("The query requires an index") == true) {
+                                    Toast.makeText(
+                                        this@NotificationActivity,
+                                        "Yêu cầu tạo chỉ mục Firestore. Vui lòng kiểm tra Firebase Console.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                } else {
+                                    Toast.makeText(
+                                        this@NotificationActivity,
+                                        "Lỗi khi tải danh sách đặt sân: ${error.message}",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                                showLoading(false)
+                            }
+                            return@addSnapshotListener
+                        }
 
-                for (doc in notificationsSnapshot.documents) {
-                    val notification = doc.toObject(com.trungkien.fbtp.model.Notification::class.java) ?: continue
-                    val relatedId = notification.relatedID
-                    val bookingSnapshot = db.collection("bookings").document(relatedId).get().await()
-                    val booking = bookingSnapshot.toObject(Booking::class.java) ?: continue
-                    if (booking.courtID !in courtIds || booking.facilityID !in coSoIds) continue
+                        val notificationItems = mutableListOf<NotificationItem>()
+                        lifecycleScope.launch {
+                            for (doc in snapshot?.documents ?: emptyList()) {
+                                val booking = doc.toObject(Booking::class.java) ?: continue
+                                if (booking.courtID !in courtIds || booking.facilityID !in coSoIds) continue
 
-                    val userSnapshot = db.collection("users").document(booking.userID).get().await()
-                    val user = userSnapshot.toObject(User::class.java)
-                    val courtSnapshot = db.collection("courts").document(booking.courtID).get().await()
-                    val court = courtSnapshot.toObject(Court::class.java)
+                                val userSnapshot = db.collection("users").document(booking.userID).get().await()
+                                val user = userSnapshot.toObject(User::class.java)
+                                val courtSnapshot = db.collection("courts").document(booking.courtID).get().await()
+                                val court = courtSnapshot.toObject(Court::class.java)
 
-                    notificationItems.add(
-                        NotificationItem(
-                            username = user?.username ?: "Không xác định",
-                            phone = user?.phone ?: "Không có số",
-                            courtSize = court?.size ?: "Không xác định",
-                            bookingDay = booking.bookingDate,
-                            bookingTime = booking.period,
-                            notificationId = notification.notificationId
-                        )
-                    )
-                }
+                                notificationItems.add(
+                                    NotificationItem(
+                                        username = user?.username ?: "Không xác định",
+                                        phone = user?.phone ?: "Không có số",
+                                        courtSize = court?.size ?: "Không xác định",
+                                        bookingDay = booking.bookingDate,
+                                        bookingTime = booking.period,
+                                        notificationId = booking.bookingID, // Use bookingID as notificationId
+                                        status = booking.status
+                                    )
+                                )
+                            }
 
-                withContext(Dispatchers.Main) {
-                    notificationAdapter.updateData(notificationItems)
-                    if (notificationItems.isEmpty()) {
-                        Toast.makeText(this@NotificationActivity, "Không có thông báo nào", Toast.LENGTH_SHORT).show()
+                            withContext(Dispatchers.Main) {
+                                notificationAdapter.updateData(notificationItems)
+                                if (notificationItems.isEmpty()) {
+                                    Toast.makeText(this@NotificationActivity, "Không có đặt sân nào", Toast.LENGTH_SHORT).show()
+                                }
+                                showLoading(false)
+                            }
+                        }
                     }
-                }
             } catch (e: Exception) {
-                Log.e(TAG, "Error loading notifications: ${e.message}", e)
+                Log.e(TAG, "Error loading bookings: ${e.message}", e)
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@NotificationActivity, "Lỗi khi tải thông báo: ${e.message}", Toast.LENGTH_LONG).show()
-                }
-            } finally {
-                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@NotificationActivity, "Lỗi khi tải danh sách đặt sân: ${e.message}", Toast.LENGTH_LONG).show()
                     showLoading(false)
                 }
             }
         }
     }
 
-    private fun markNotificationAsRead(notificationId: String) {
+    private fun markBookingAsRead(notificationId: String) {
+        // Optional: If you want to mark a booking as read, update a field in the booking document
+        // For now, we'll assume this is not needed unless you have a specific "isRead" field in Booking
         lifecycleScope.launch {
             try {
-                db.collection("notifications")
+                // Example: Add an isRead field to the Booking model if needed
+                db.collection("bookings")
                     .document(notificationId)
                     .update("isRead", true)
                     .await()
-                Log.d(TAG, "Marked notification $notificationId as read")
-                loadNotifications()
+                Log.d(TAG, "Marked booking $notificationId as read")
             } catch (e: Exception) {
-                Log.e(TAG, "Error marking notification as read: ${e.message}", e)
+                Log.e(TAG, "Error marking booking as read: ${e.message}", e)
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@NotificationActivity, "Lỗi khi đánh dấu thông báo: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@NotificationActivity, "Lỗi khi đánh dấu đã đọc: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
         }
